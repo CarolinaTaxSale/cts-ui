@@ -38,14 +38,20 @@ all-in-one's `docs/shared-code-inventory.md` lists each copy, its source and the
 
 ## API
 
-| Route | Returns |
-|---|---|
-| `GET /api/counties/:county/parcels` | The county's delinquent parcels (card and map pin fields) |
-| `GET /api/counties/:county/parcels/:parcel` | One parcel in full |
-| `GET /api/counties/:county/parcels/:parcel/images/:kind` | A stored image, or 404 |
-| `POST /api/auth/request-otp`, `POST /api/auth/verify-otp`, `POST /api/auth/logout` | Email OTP sign in |
+| Route | Returns | Who |
+|---|---|---|
+| `GET /api/counties/:county/parcels` | The county's delinquent parcels (card and map pin fields) | Signed in |
+| `GET /api/counties/:county/parcels/:parcel` | One parcel in full | Signed in |
+| `GET /api/counties/:county/parcels/:parcel/images/satellite-card` | The card thumbnail, or 404 | Anyone (the landing page shows it) |
+| `GET /api/counties/:county/parcels/:parcel/images/:kind` | `satellite-hero` or `street-view`, or 404 | Signed in |
+| `POST /api/auth/request-otp`, `POST /api/auth/verify-otp`, `POST /api/auth/logout` | Email OTP sign in | Anyone |
 
 ## Auth
 
 Auth (email OTP) reads and writes the `consumer_auth` schema on pdo-db; see `AUTH_DB_URL` in `.env.example` and `scripts/provision-auth-db.mjs`.
 With no `BREVO_API_KEY`, OTP codes are logged to the server console instead of emailed.
+A session is a random token in an `httpOnly` cookie; only its hash is stored.
+
+Every code request sends a real email, so requests are limited per address in the database: one a minute and five an hour (`lib/server/auth/otp.ts`).
+That limit holds across restarts and replicas.
+There is no per-IP limit in the app, because an address read from `X-Forwarded-For` can be forged; put one at the edge (CDN or load balancer) in front of it.
