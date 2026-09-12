@@ -24,7 +24,9 @@ declare global {
 function createClient() {
   const url = process.env.PARCELS_DB_URL
   if (!url) throw new Error('PARCELS_DB_URL is not set - see .env.example')
-  return postgres(url, { ssl: 'require', max: 5 })
+  // TLS comes from the URL's sslmode (verify-full for pdo-db). An explicit `ssl`
+  // option would override it, and `ssl: 'require'` skips certificate checks.
+  return postgres(url, { max: 5 })
 }
 
 // Lazy for the same reason lib/db.ts is: `next build` imports every route
@@ -130,7 +132,8 @@ type DelinquentRow = {
   taxBills: { billYear: number; billAmount: string; paymentDate: string | null }[]
 }
 
-export async function getDelinquentParcels(countyId: string): Promise<ParcelSummary[]> {
+/** Every delinquent parcel in the county, or with `limit`, the ones owing the most tax. */
+export async function getDelinquentParcels(countyId: string, { limit }: { limit?: number } = {}): Promise<ParcelSummary[]> {
   const config = getCountyConfig(countyId)
   const rows = await sql<DelinquentRow[]>`
     select
@@ -162,6 +165,7 @@ export async function getDelinquentParcels(countyId: string): Promise<ParcelSumm
       from parcels.tax_bills where parcel_uuid = m.parcel_uuid
     ) tb on true
     where m.county_id = ${countyId} and m.is_delinquent = true
+    ${limit === undefined ? sql`` : sql`order by m.tax_owed desc nulls last limit ${limit}`}
   `
 
   const sharedFootprintKeys = await findSharedFootprintKeys(rows.map((r) => r.footprintKey))
