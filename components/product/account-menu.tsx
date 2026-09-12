@@ -1,16 +1,13 @@
 'use client'
 
-import { useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
+import { Menu } from '@base-ui/react/menu'
 import { LogOut } from 'lucide-react'
-import { useClickOutside } from '@/components/product/use-click-outside'
 
+// The signed-in user's menu in the top bar. Base UI's Menu supplies the
+// keyboard navigation, focus handling and dismissal.
 export function AccountMenu({ email }: { email: string }) {
-  const [open, setOpen] = useState(false)
   const router = useRouter()
-  const ref = useRef<HTMLDivElement>(null)
-  useClickOutside(open, [ref], () => setOpen(false))
 
   async function signOut() {
     await fetch('/api/auth/logout', { method: 'POST' })
@@ -18,25 +15,26 @@ export function AccountMenu({ email }: { email: string }) {
     router.refresh()
   }
 
-  const initial = email[0]?.toUpperCase() ?? '?'
-
   return (
-    <div ref={ref} className="relative">
-      <button aria-label="Account" onClick={() => setOpen((o) => !o)} className="avatar">{initial}</button>
-      {open && typeof window !== 'undefined' && createPortal(
-        <div onClick={() => setOpen(false)} className="fixed inset-0 z-[2000]">
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="panel absolute right-5 top-16 w-64 overflow-hidden py-1 shadow-lg sm:right-8"
-          >
-            <p className="truncate border-b border-border px-3.5 py-2.5 text-sm font-medium">{email}</p>
-            <button onClick={signOut} className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-muted-foreground transition hover:bg-muted hover:text-foreground">
-              <LogOut size={15} /> Sign out
-            </button>
-          </div>
-        </div>,
-        document.body,
-      )}
-    </div>
+    <Menu.Root>
+      <Menu.Trigger aria-label="Account" className="avatar">
+        {email[0]?.toUpperCase() ?? '?'}
+      </Menu.Trigger>
+      <Menu.Portal>
+        <Menu.Positioner sideOffset={8} align="end" className="z-[70] outline-none">
+          <Menu.Popup className="panel w-64 origin-[var(--transform-origin)] overflow-hidden py-1 shadow-lg outline-none transition-[opacity,scale] duration-100 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
+            <Menu.Group>
+              <Menu.GroupLabel className="truncate border-b border-border px-3.5 py-2.5 text-sm font-medium text-foreground">{email}</Menu.GroupLabel>
+              <Menu.Item
+                onClick={signOut}
+                className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm text-muted-foreground outline-none data-[highlighted]:bg-muted data-[highlighted]:text-foreground"
+              >
+                <LogOut aria-hidden size={15} /> Sign out
+              </Menu.Item>
+            </Menu.Group>
+          </Menu.Popup>
+        </Menu.Positioner>
+      </Menu.Portal>
+    </Menu.Root>
   )
 }

@@ -30,10 +30,21 @@ export function getCountyConfig(countyId: string): CountyConfig | undefined {
 
 // Plain `{id, state, name}` only - a Server Component can't pass
 // `countyParcelUrl` (a function) as a prop to a Client Component, so anything
-// handing counties to client code (the product shell, its county dropdown)
-// needs this instead of COUNTIES directly.
+// handing counties to client code (the product shell, its county menu) needs
+// this instead of COUNTIES directly.
 export function plainCounties(): County[] {
   return COUNTIES.map(({ id, state, name }) => ({ id, state, name }))
+}
+
+/** The product URL for a county: `sc.york` -> `/app/sc/york`. */
+export function countyPath(county: Pick<County, 'id'>): string {
+  const [state, slug] = county.id.split('.')
+  return `/app/${state}/${slug}`
+}
+
+/** The county a `/app/:state/:county` URL names, or undefined. */
+export function countyFromPath(state: string, slug: string): County | undefined {
+  return plainCounties().find((c) => c.id === `${state}.${slug}`)
 }
 
 export function isValidCounty(countyId: string): boolean {

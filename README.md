@@ -6,8 +6,8 @@ Two pieces:
 
 - **Landing page** (`/`) and email-only OTP sign in (`/login`).
   No passwords, no OAuth: a visitor enters their email, gets a one-time code, and is signed in.
-- **Product experience** (`/app`): the same parcel map, list and detail experience as `admin-ui`'s Analyze tab, adapted for a consumer.
-  Full-width layout, a county dropdown instead of a sidebar, and none of the ingestion or infrastructure tooling.
+- **Product experience** (`/app/:state/:county`, e.g. `/app/sc/york`; `/app` opens the first county): the same parcel map, list and detail experience as `admin-ui`'s Analyze tab, adapted for a consumer.
+  Full-width layout, a county menu instead of a sidebar, and none of the ingestion or infrastructure tooling.
 
 ## Local development
 
