@@ -1,0 +1,63 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+@import 'leaflet/dist/leaflet.css';
+
+@custom-variant dark (&:is(.dark *));
+
+@keyframes shimmer-sweep {
+  from { transform: translateX(-120%) skewX(-12deg); }
+  to { transform: translateX(320%) skewX(-12deg); }
+}
+
+@theme inline {
+  --color-background: var(--background); --color-foreground: var(--foreground); --color-card: var(--card); --color-card-foreground: var(--card-foreground); --color-popover: var(--popover); --color-popover-foreground: var(--popover-foreground); --color-primary: var(--primary); --color-primary-foreground: var(--primary-foreground); --color-secondary: var(--secondary); --color-secondary-foreground: var(--secondary-foreground); --color-muted: var(--muted); --color-muted-foreground: var(--muted-foreground); --color-accent: var(--accent); --color-accent-foreground: var(--accent-foreground); --color-destructive: var(--destructive); --color-border: var(--border); --color-input: var(--input); --color-ring: var(--ring); --color-chart-2: var(--chart-2); --color-chart-3: var(--chart-3); --font-sans: Arial, Helvetica, sans-serif; --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --radius-sm: calc(var(--radius) * .6); --radius-md: calc(var(--radius) * .8); --radius-lg: var(--radius); --radius-xl: calc(var(--radius) * 1.4);
+}
+/* Same palette as admin-ui (app/globals.css there) so screenshots and the
+   ported Analyze experience look identical across both apps. */
+:root { color-scheme: light dark; --background: oklch(.975 .012 85); --foreground: oklch(.21 .025 255); --card: oklch(1 0 0); --card-foreground: oklch(.21 .025 255); --popover: oklch(1 0 0); --popover-foreground: oklch(.21 .025 255); --primary: oklch(.27 .055 254); --primary-foreground: oklch(.98 .01 90); --secondary: oklch(.93 .018 86); --secondary-foreground: oklch(.27 .055 254); --muted: oklch(.945 .015 85); --muted-foreground: oklch(.49 .035 255); --accent: oklch(.93 .03 195); --accent-foreground: oklch(.22 .05 220); --destructive: oklch(.59 .18 28); --border: oklch(.88 .018 80); --input: oklch(.86 .018 80); --ring: oklch(.52 .1 215); --chart-2: oklch(.61 .11 205); --chart-3: oklch(.62 .12 155); --radius: .8rem; }
+@media (prefers-color-scheme: dark) {
+  :root { --background: oklch(.16 .025 255); --foreground: oklch(.94 .012 90); --card: oklch(.205 .03 255); --card-foreground: oklch(.94 .012 90); --popover: oklch(.22 .035 255); --popover-foreground: oklch(.94 .012 90); --primary: oklch(.78 .12 205); --primary-foreground: oklch(.16 .025 255); --secondary: oklch(.27 .035 255); --secondary-foreground: oklch(.9 .025 205); --muted: oklch(.235 .03 255); --muted-foreground: oklch(.7 .025 255); --accent: oklch(.3 .07 205); --accent-foreground: oklch(.88 .06 205); --destructive: oklch(.7 .16 28); --border: oklch(.32 .035 255); --input: oklch(.34 .035 255); --ring: oklch(.72 .1 205); --chart-2: oklch(.72 .12 205); --chart-3: oklch(.72 .14 155); }
+}
+
+@layer base {
+  * { @apply border-border outline-ring/50; }
+  body { @apply bg-background text-foreground font-sans; background-image: radial-gradient(circle at 0% 0%, color-mix(in oklch, var(--accent) 18%, transparent), transparent 28rem); }
+  /* Tailwind v4 preflight dropped the default `cursor: pointer` on buttons. */
+  button:not(:disabled), [role='button']:not(:disabled), select:not(:disabled) { cursor: pointer; }
+}
+
+@layer components {
+  .topbar { @apply sticky top-0 z-50 flex h-16 items-center justify-between border-b border-border/80 bg-card/90 px-5 shadow-sm backdrop-blur-xl sm:px-8; }
+  .brand-mark { @apply flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg; }
+  .brand-name { @apply text-sm font-bold tracking-tight; } .brand-caption { @apply text-xs text-muted-foreground; }
+  .avatar { @apply flex h-8 w-8 items-center justify-center rounded-full bg-accent text-[11px] font-bold text-accent-foreground; }
+  .icon-button { @apply flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition hover:bg-muted hover:text-foreground; }
+  /* Product experience container: wider than admin-ui's 1400px cap so the
+     map gets meaningfully more room on large screens - see AGENTS/task
+     notes on the Analyze-tab port. */
+  .content { @apply mx-auto w-full max-w-[1400px] flex-1 p-5 sm:p-8; }
+  .content-wide { @apply mx-auto w-full max-w-[1920px] flex-1 p-4 sm:p-6; }
+  .eyebrow { @apply text-xs font-bold uppercase tracking-[.16em] text-muted-foreground; } .page-title { @apply text-3xl font-semibold tracking-[-.04em] sm:text-4xl; } .page-subtitle { @apply mt-2 text-sm text-muted-foreground; }
+  .primary-button { @apply inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90; }
+  .secondary-button { @apply inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 text-sm font-semibold text-foreground transition hover:bg-muted; }
+  .panel { @apply rounded-xl border border-border bg-card; } .section-title { @apply text-base font-semibold tracking-tight; }
+  .metric-icon { @apply flex h-9 w-9 items-center justify-center rounded-lg bg-accent text-accent-foreground; }
+  .data-label { @apply text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground; }
+  .cta-sweep { @apply overflow-hidden; }
+  .cta-sweep::after { content: ''; @apply pointer-events-none absolute inset-y-0 w-1/3 bg-white/15; animation: shimmer-sweep 2.8s ease-in-out infinite; }
+  .cta-sweep:disabled::after { animation-play-state: paused; opacity: 0; }
+  .skeleton { @apply relative overflow-hidden rounded-md bg-muted; }
+  .skeleton::after { content: ''; @apply pointer-events-none absolute inset-y-0 left-0 w-1/3 bg-foreground/10 blur-md; animation: shimmer-sweep 1.8s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) { .skeleton::after { animation: none; } }
+  .parcel-card-placeholder { background-color: var(--muted); background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px), linear-gradient(135deg, var(--secondary), var(--muted) 55%, var(--accent)); background-size: 22px 22px, 22px 22px, 100% 100%; }
+}
+
+/* A map pin's popup holds a full parcel card - strip Leaflet's own popup
+   chrome and typography down to nothing. Deliberately unlayered, same
+   reasoning as admin-ui's globals.css. */
+.parcel-card-popup .leaflet-popup-content-wrapper { padding: 0; border-radius: calc(var(--radius) * 1.4); background: transparent; color: inherit; box-shadow: 0 10px 30px rgba(15, 23, 42, .28); }
+.parcel-card-popup .leaflet-popup-content { margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 14px; line-height: 1.25rem; }
+.parcel-card-popup .leaflet-popup-content p { margin: 0; }
+.parcel-card-popup .leaflet-popup-tip { background: var(--card); }
