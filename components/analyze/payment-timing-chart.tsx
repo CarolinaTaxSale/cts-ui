@@ -12,7 +12,7 @@
 // toward the card background the older the bill is, so recent years read
 // brightest. The three axis labels are fixed reference zones, not data.
 
-import type { PaymentHistoryEntry } from '@/lib/api'
+import type { PaymentHistoryEntry } from '@/lib/types'
 
 // Fraction (0-1) across a bill year's 18-month window (July 1 of billYear to
 // Dec 31 of billYear + 1) at which a timestamp falls. Clamped, so out-of-range

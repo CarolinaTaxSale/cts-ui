@@ -1,12 +1,7 @@
-// The counties this app serves, and the source of truth for it. This used to
-// be a GET /counties call to the orchestrator (see lib/counties-server.ts,
-// now removed); the orchestrator/retriever/admin-ui stack is purely a local
-// data-collection tool, not something this app can depend on in production,
-// so the list is copied here instead - mirrors
-// data-orchestrator/src/lib/countyValidation.ts exactly. Add a county by
-// adding a row; comment one out to disable it everywhere without losing its
-// config.
-import type { County } from './api'
+// The counties this app serves. A copy of data-orchestrator's
+// countyValidation.ts list (see all-in-one's docs/shared-code-inventory.md):
+// add or disable a county in both.
+import type { County } from './types'
 
 type CountyConfig = County & { countyParcelUrl: (parcelId: string) => string }
 

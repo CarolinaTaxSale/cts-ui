@@ -20,14 +20,13 @@ export const MAP_MIN_ZOOM = MAP_MAX_ZOOM - 8
 // flies straight there, since there's nothing to zoom out of yet.
 export const MAP_ZOOMED_IN_THRESHOLD = MAP_MIN_ZOOM + (MAP_MAX_ZOOM - MAP_MIN_ZOOM) / 2
 
-// The orchestrator returns `polygons`/`centroids` "exactly as received" and
-// does not enforce a coordinate order (see data-orchestrator/README.md's
-// "Coordinate order caveat" - the sample data is latitude-first despite
-// claims of GeoJSON [lng, lat] order). Every county in scope is continental
-// US, where latitude magnitude tops out ~49 and longitude magnitude bottoms
-// out ~66, so the magnitude gap disambiguates: whichever component is > 60
-// is the longitude. Same 60 threshold data-orchestrator/src/db/geometry.ts
-// uses. Leaflet wants [lat, lng].
+// `polygons`/`centroids` are stored exactly as the county sources sent them,
+// with no guaranteed coordinate order (much of it is latitude-first despite
+// claiming GeoJSON [lng, lat]). Every county in scope is continental US, where
+// latitude magnitude tops out ~49 and longitude magnitude bottoms out ~66, so
+// the magnitude gap disambiguates: whichever component is > 60 is the
+// longitude. The ingestion side uses the same 60 threshold. Leaflet wants
+// [lat, lng].
 export function toLatLng(pair: readonly number[]): [number, number] {
   const [a, b] = pair
   if (Math.abs(a) > 60 && Math.abs(b) <= 60) return [b, a]
