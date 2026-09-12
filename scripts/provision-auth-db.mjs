@@ -1,16 +1,26 @@
 // `npm run provision-auth-db` - set up the consumer_auth schema on the
 // `pdo-db` Postgres (Fly.io) that this app's email-OTP sign-in reads/writes,
-// plus a dedicated least-privilege role to connect as.
+// plus the least-privilege role this app connects as.
 //
 // This deliberately does NOT reuse the orchestrator's `etl_writer` or
 // `consumer_reader` roles (see all-in-one's scripts/consumer-db.mjs): this is
 // a public-internet-facing web app, and it has no business holding a
 // credential that can write to the `parcels` schema, or that the ETL job's
-// credential rotation would need to account for. `cts_ui_app` gets exactly
-// one schema.
+// credential rotation would need to account for. Nor does consumer_reader get
+// to write here: anyone who can insert into consumer_auth.sessions can sign in
+// as any user.
 //
-// Idempotent, same pattern as consumer-db.mjs: creates whatever is missing,
-// re-asserts the rest. Credentials are a random 256-bit password, kept in the
+// Two roles, so even a compromised app can't reshape or wipe its own tables:
+//
+//   cts_ui_owner  NOLOGIN - owns the consumer_auth schema and its tables. The
+//                 migration runs as this role.
+//   cts_ui_app    LOGIN - USAGE on consumer_auth plus only the row privileges
+//                 lib/otp.ts uses (TABLE_GRANTS below). No DDL, no TRUNCATE,
+//                 nothing in parcels.
+//
+// Idempotent, same pattern as consumer-db.mjs: creates whatever is missing and
+// re-asserts the rest, including revoking any table privilege that isn't in
+// TABLE_GRANTS. Credentials are a random 256-bit password, kept in the
 // gitignored `.env.auth-db` at this repo's root (`--rotate` issues a new one).
 // Only a SCRAM-SHA-256 verifier - never the password itself - is sent to the
 // server. Requires `fly` (authenticated against the pdo-db org) and `docker`
@@ -31,9 +41,22 @@ const PSQL_IMAGE = "postgres:16-alpine";
 const DATABASE = "carolinataxsale";
 const SSLMODE = "verify-full";
 const SCHEMA = "consumer_auth";
+const OWNER = "cts_ui_owner";
 const ROLE = "cts_ui_app";
 const CREDENTIALS_FILE = resolve(root, ".env.auth-db");
 const MIGRATION_FILE = resolve(root, "migrations", "0001_consumer_auth.sql");
+
+// Exactly what lib/otp.ts does to each table. A new table or a new kind of
+// query needs its grant added here; the end-of-run check fails until it is.
+const TABLE_GRANTS = {
+  // insert a code; select ... for update, then bump attempt_count / set consumed_at
+  otp_codes: ["SELECT", "INSERT", "UPDATE"],
+  // insert ... on conflict (email) do update ... returning id
+  users: ["SELECT", "INSERT", "UPDATE"],
+  // create on sign-in, look up per request, delete on sign-out
+  sessions: ["SELECT", "INSERT", "DELETE"],
+};
+const TABLE_PRIVILEGES = ["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"];
 
 const step = (message) => console.log(`\n==> ${message}`);
 const urlFor = (password) => `postgres://${ROLE}:${password}@${HOST}:5432/${DATABASE}?sslmode=${SSLMODE}`;
@@ -89,6 +112,8 @@ function adminPsql(sql) {
 /** Log in as `role` over the public endpoint and run `sql`. Returns stdout. */
 function loginPsql(password, sql) {
   const conninfo = `host=${HOST} port=5432 user=${ROLE} dbname=${DATABASE} sslmode=${SSLMODE} sslrootcert=system connect_timeout=20`;
+  // `-e PGPASSWORD` with no value hands docker the variable from our own
+  // environment, so the password never appears on a command line.
   const res = run("docker", ["run", "--rm", "-i", "-e", "PGPASSWORD", PSQL_IMAGE, "psql", conninfo, "-qAtX", "-v", "ON_ERROR_STOP=1"], {
     input: sql,
     env: { ...process.env, PGPASSWORD: password },
@@ -98,7 +123,12 @@ function loginPsql(password, sql) {
 }
 
 function provisionSql(verifier, migrationSql) {
+  const grants = Object.entries(TABLE_GRANTS)
+    .map(([table, privileges]) => `GRANT ${privileges.join(", ")} ON ${SCHEMA}.${table} TO ${ROLE};`)
+    .join("\n");
   return `
+SELECT 'CREATE ROLE ${OWNER}' WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${OWNER}') \\gexec
+ALTER ROLE ${OWNER} WITH NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 SELECT 'CREATE ROLE ${ROLE}' WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${ROLE}') \\gexec
 ALTER ROLE ${ROLE} WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS
   CONNECTION LIMIT 10 PASSWORD '${verifier}';
@@ -106,15 +136,54 @@ GRANT CONNECT ON DATABASE ${DATABASE} TO ${ROLE};
 
 \\connect ${DATABASE}
 BEGIN;
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-CREATE SCHEMA IF NOT EXISTS ${SCHEMA} AUTHORIZATION ${ROLE};
-ALTER SCHEMA ${SCHEMA} OWNER TO ${ROLE};
-GRANT ALL ON SCHEMA ${SCHEMA} TO ${ROLE};
-SET ROLE ${ROLE};
+CREATE SCHEMA IF NOT EXISTS ${SCHEMA} AUTHORIZATION ${OWNER};
+ALTER SCHEMA ${SCHEMA} OWNER TO ${OWNER};
+-- Every table belongs to ${OWNER}, however it was created.
+DO $$
+DECLARE t text;
+BEGIN
+  FOR t IN SELECT tablename FROM pg_tables WHERE schemaname = '${SCHEMA}' LOOP
+    EXECUTE format('ALTER TABLE ${SCHEMA}.%I OWNER TO ${OWNER}', t);
+  END LOOP;
+END $$;
+-- CREATE SCHEMA IF NOT EXISTS checks the database's CREATE privilege before it
+-- checks whether the schema exists, so the migration's own create-schema line
+-- needs it. Granted only for this transaction: revoked again before COMMIT.
+GRANT CREATE ON DATABASE ${DATABASE} TO ${OWNER};
+SET ROLE ${OWNER};
 ${migrationSql}
 RESET ROLE;
+REVOKE CREATE ON DATABASE ${DATABASE} FROM ${OWNER};
+REVOKE ALL ON SCHEMA ${SCHEMA} FROM PUBLIC, ${ROLE};
+GRANT USAGE ON SCHEMA ${SCHEMA} TO ${ROLE};
+REVOKE ALL ON ALL TABLES IN SCHEMA ${SCHEMA} FROM PUBLIC, ${ROLE};
+${grants}
 COMMIT;
 `;
+}
+
+// One line of facts about the role, then one `table:privileges` line per table
+// in the schema - so a table missing from TABLE_GRANTS shows up as a mismatch.
+const CHECK_SQL = `
+SELECT 'user=' || current_user
+    || ' create-in-${SCHEMA}=' || has_schema_privilege('${SCHEMA}', 'CREATE')
+    || ' parcels-usage=' || has_schema_privilege('parcels', 'USAGE')
+    || ' member-of-${OWNER}=' || pg_has_role('${OWNER}', 'MEMBER');
+SELECT c.relname || ':' || concat_ws(',', ${TABLE_PRIVILEGES.map(
+  (p) => `CASE WHEN has_table_privilege(c.oid, '${p}') THEN '${p}' END`,
+).join(", ")})
+  FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+ WHERE n.nspname = '${SCHEMA}' AND c.relkind IN ('r', 'p')
+ ORDER BY c.relname;
+`;
+
+function expectedCheck() {
+  return [
+    `user=${ROLE} create-in-${SCHEMA}=false parcels-usage=false member-of-${OWNER}=false`,
+    ...Object.keys(TABLE_GRANTS)
+      .sort()
+      .map((table) => `${table}:${TABLE_PRIVILEGES.filter((p) => TABLE_GRANTS[table].includes(p)).join(",")}`),
+  ];
 }
 
 function main() {
@@ -146,23 +215,23 @@ function main() {
     ].join("\n"),
   );
 
-  step(`Provisioning role, schema and tables on ${APP} (as the Fly superuser, via fly ssh console)`);
+  step(`Provisioning roles, schema, tables and grants on ${APP} (as the Fly superuser, via fly ssh console)`);
   const migrationSql = readFileSync(MIGRATION_FILE, "utf8");
   adminPsql(provisionSql(scramVerifier(password), migrationSql));
   console.log("    done");
 
-  step(`Checking the login over the public endpoint (${HOST}:5432, sslmode=${SSLMODE})`);
-  const check = loginPsql(
-    password,
-    "SELECT current_user || ' has-consumer-auth=' || has_schema_privilege('consumer_auth', 'USAGE') || ' can-create-in-parcels=' || has_schema_privilege('parcels', 'CREATE');",
-  );
-  console.log(`    ${check}`);
-  if (!check.endsWith("has-consumer-auth=true can-create-in-parcels=false")) {
-    throw new Error(`${ROLE} doesn't have the privileges it should - see the line above.`);
+  step(`Checking ${ROLE}'s privileges over the public endpoint (${HOST}:5432, sslmode=${SSLMODE})`);
+  const actual = loginPsql(password, CHECK_SQL).split(/\r?\n/);
+  for (const line of actual) console.log(`    ${line}`);
+  const expected = expectedCheck();
+  if (actual.join("\n") !== expected.join("\n")) {
+    throw new Error(`${ROLE} doesn't have exactly the privileges it should. Expected:\n${expected.map((l) => `    ${l}`).join("\n")}`);
   }
 
   console.log(`
-Done. AUTH_DB_URL is in ${CREDENTIALS_FILE} - copy it into your .env (or .env.local) as AUTH_DB_URL.`);
+Done. AUTH_DB_URL is in ${CREDENTIALS_FILE}.
+Copy it into this repo's .env as AUTH_DB_URL for \`pnpm dev\`, and into all-in-one's
+root .env as CTS_UI_AUTH_DB_URL for the compose stack (then \`docker compose up -d cts-ui\`).`);
 }
 
 try {

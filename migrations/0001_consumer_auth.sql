@@ -1,7 +1,8 @@
 -- consumer_auth schema on pdo-db: email-only OTP accounts + sessions for
--- cts-ui. Applied by scripts/provision-auth-db.mjs, which also creates the
--- dedicated `cts_ui_app` role this app connects as (least privilege: this
--- schema only, plus SELECT on parcels.* like consumer_reader already has).
+-- cts-ui. Applied by scripts/provision-auth-db.mjs as the NOLOGIN
+-- `cts_ui_owner` role, which owns everything here. The `cts_ui_app` role this
+-- app connects as gets only the row privileges lib/otp.ts uses (TABLE_GRANTS
+-- in that script) and nothing outside this schema.
 create schema if not exists consumer_auth;
 
 create table if not exists consumer_auth.users (
