@@ -4,13 +4,10 @@ Consumer-facing web app for CarolinaTaxSale.com.
 
 Two pieces:
 
-- **Landing page** (`/`) and email-only OTP sign in (`/login`) - no
-  passwords, no OAuth. A visitor enters their email, gets a one-time code,
-  and is signed in.
-- **Product experience** (`/app`) - the same parcel map/list/detail
-  experience as `admin-ui`'s Analyze tab, adapted for a consumer: full-width
-  layout, a county dropdown instead of a sidebar, and none of the
-  ingestion/execute/infrastructure tooling.
+- **Landing page** (`/`) and email-only OTP sign in (`/login`).
+  No passwords, no OAuth: a visitor enters their email, gets a one-time code, and is signed in.
+- **Product experience** (`/app`): the same parcel map, list and detail experience as `admin-ui`'s Analyze tab, adapted for a consumer.
+  Full-width layout, a county dropdown instead of a sidebar, and none of the ingestion or infrastructure tooling.
 
 ## Local development
 
@@ -19,12 +16,36 @@ pnpm install
 pnpm dev
 ```
 
-Reads parcel data from the data-orchestrator API through a same-origin,
-read-only proxy (see `ORCHESTRATOR_URL` in `.env.example`) - point it at a
-locally running `all-in-one` stack (`http://localhost:3100`) or a deployed
-orchestrator.
+Copy `.env.example` to `.env.local` and fill it in.
 
-Auth (email OTP) reads/writes the `consumer_auth` schema on the `pdo-db`
-Postgres instance on Fly.io - see `AUTH_DB_URL` in `.env.example` and
-`scripts/provision-auth-db.mjs`. OTP codes are logged to the server console
-in place of a real email until Brevo is wired up in `lib/email.ts`.
+## Where the data comes from
+
+This app is the product; `admin-ui`, `data-orchestrator` and `data-retriever` are a local data-collection tool it never calls.
+Everything it shows is read straight from two places the orchestrator fills:
+
+- **Postgres** (`PARCELS_DB_URL`): the `parcels` schema, read-only.
+  In production that is pdo-db on Fly.io, which the orchestrator's `etl` job rebuilds per county.
+  Locally you can point it at the all-in-one stack's Postgres instead (`postgres://postgres:postgres@localhost:5432/CarolinaTaxSale`).
+  `lib/server/parcels.ts` holds every query.
+- **The image store** (`S3_*`): parcel images in the R2 bucket.
+  `parcels.stored_images` says which object holds each parcel's `satellite-card`, `satellite-hero` and `street-view` image, and `app/api/counties/[county]/parcels/[parcel]/images/[kind]` streams it.
+  The orchestrator's `parcel-images` job produces them; a parcel it hasn't reached yet shows a placeholder.
+
+So new data reaches production in this order: the orchestrator's enrichment jobs, then `parcel-images`, then `etl`.
+
+The query rules, county list, types and Analyze components are copies of code in the other services.
+all-in-one's `docs/shared-code-inventory.md` lists each copy, its source and the options for sharing it instead.
+
+## API
+
+| Route | Returns |
+|---|---|
+| `GET /api/counties/:county/parcels` | The county's delinquent parcels (card and map pin fields) |
+| `GET /api/counties/:county/parcels/:parcel` | One parcel in full |
+| `GET /api/counties/:county/parcels/:parcel/images/:kind` | A stored image, or 404 |
+| `POST /api/auth/request-otp`, `POST /api/auth/verify-otp`, `POST /api/auth/logout` | Email OTP sign in |
+
+## Auth
+
+Auth (email OTP) reads and writes the `consumer_auth` schema on pdo-db; see `AUTH_DB_URL` in `.env.example` and `scripts/provision-auth-db.mjs`.
+With no `BREVO_API_KEY`, OTP codes are logged to the server console instead of emailed.
