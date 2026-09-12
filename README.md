@@ -38,20 +38,26 @@ all-in-one's `resources/docs/shared-code-inventory.md` lists each copy, its sour
 
 ## API
 
-| Route | Returns |
-|---|---|
-| `GET /api/counties/:county/parcels` | The county's delinquent parcels (card and map pin fields) |
-| `GET /api/counties/:county/parcels/:parcel` | One parcel in full |
-| `GET /api/counties/:county/parcels/:parcel/images/:kind` | A stored image, or 404 |
-| `POST /api/auth/request-otp`, `POST /api/auth/verify-otp`, `POST /api/auth/logout` | Email OTP sign in |
+| Route | Returns | Who |
+|---|---|---|
+| `GET /api/counties/:county/parcels` | The county's delinquent parcels (card and map pin fields) | Signed in |
+| `GET /api/counties/:county/parcels/:parcel` | One parcel in full | Signed in |
+| `GET /api/counties/:county/parcels/:parcel/images/satellite-card` | The card thumbnail, or 404 | Anyone (the landing page shows it) |
+| `GET /api/counties/:county/parcels/:parcel/images/:kind` | `satellite-hero` or `street-view`, or 404 | Signed in |
+| `POST /api/auth/request-otp`, `POST /api/auth/verify-otp`, `POST /api/auth/logout` | Email OTP sign in | Anyone |
 
 ## Auth
 
 Auth (email OTP) reads and writes the `consumer_auth` schema on pdo-db; see `AUTH_DB_URL` in `.env.example` and `scripts/provision-auth-db.mjs`.
 With no `BREVO_API_KEY`, OTP codes are logged to the server console instead of emailed.
+A session is a random token in an `httpOnly` cookie; only its hash is stored.
+
+Every code request sends a real email, so requests are limited per address in the database: one a minute and five an hour (`lib/server/auth/otp.ts`).
+That limit holds across restarts and replicas.
+There is no per-IP limit in the app, because an address read from `X-Forwarded-For` can be forged; put one at the edge (CDN or load balancer) in front of it.
 
 `npm run provision-auth-db` (idempotent; `-- --rotate` for a new password) sets that store up.
 The schema and its tables belong to the no-login `cts_ui_owner` role.
-The app connects as `cts_ui_app`, which gets only the row privileges `lib/otp.ts` uses (`TABLE_GRANTS` in the script) and nothing in `parcels`.
+The app connects as `cts_ui_app`, which gets only the row privileges `lib/server/auth/otp.ts` uses (`TABLE_GRANTS` in the script) and nothing in `parcels`.
 A new auth table or query needs its grant added there, and the script's closing privilege check fails until it is.
 The login lands in the gitignored `.env.auth-db`: copy it into `.env` as `AUTH_DB_URL`, and into all-in-one's root `.env` as `CTS_UI_AUTH_DB_URL` for the compose stack.
