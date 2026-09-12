@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
-import type { County } from '@/lib/api'
+import type { County } from '@/lib/types'
 
 type ProductContextValue = {
   county: County

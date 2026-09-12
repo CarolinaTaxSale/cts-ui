@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from 'react'
 import Image from 'next/image'
 import { ImageOff } from 'lucide-react'
-import type { StreetViewInsight } from '@/lib/api'
+import type { StreetViewInsight } from '@/lib/types'
 import { SATELLITE_IMAGE_CREDIT, STREET_VIEW_IMAGE_CREDIT, satelliteImageUrl, streetViewImageUrl } from '@/lib/parcel-images'
 
 // "2024-06" -> "Jun 2024", the way Google reports a pano's capture month.
@@ -32,12 +32,13 @@ function Missing({ children }: { children: ReactNode }) {
 
 // The parcel detail's two photos of the lot, side by side: the satellite
 // overhead with the boundary drawn on (every parcel with a boundary has one, so
-// it's the hero), and Google Street View from the road when there's a pano near
-// the lot. Both are served and cached by the orchestrator.
+// it's the hero), and Google Street View from the road when there's one to show.
 //
-// `streetView` is what the orchestrator already knows: undefined/null = not
-// looked up yet (requesting the image looks it up), `available: false` =
-// nothing nearby, so skip a request that can only 404.
+// `streetView` comes with the parcel's detail: undefined while that loads,
+// `available: true` when there's an image to request, `available: false` when
+// there's no Street View near the lot, and null when there's simply no image.
+// Only an available one is requested, so nothing asks for an image that can
+// only 404.
 export function ParcelHeroImages({
   countyId,
   parcelId,
@@ -49,7 +50,6 @@ export function ParcelHeroImages({
 }) {
   const [satelliteFailed, setSatelliteFailed] = useState(false)
   const [streetViewFailed, setStreetViewFailed] = useState(false)
-  const noStreetView = streetView?.available === false
 
   return (
     <div className="grid gap-3 sm:grid-cols-2">
@@ -68,9 +68,7 @@ export function ParcelHeroImages({
         )}
       </Frame>
       <Frame caption={streetView?.capturedAt ? `${STREET_VIEW_IMAGE_CREDIT} · captured ${formatCaptured(streetView.capturedAt)}` : STREET_VIEW_IMAGE_CREDIT}>
-        {noStreetView || streetViewFailed ? (
-          <Missing>{noStreetView ? 'No Street View near this parcel' : 'Street View unavailable'}</Missing>
-        ) : (
+        {streetView === undefined ? null : streetView?.available && !streetViewFailed ? (
           <Image
             src={streetViewImageUrl(countyId, parcelId)}
             alt="Street View of the parcel from the road"
@@ -79,6 +77,8 @@ export function ParcelHeroImages({
             className="object-cover"
             onError={() => setStreetViewFailed(true)}
           />
+        ) : (
+          <Missing>{streetView?.available === false ? 'No Street View near this parcel' : 'Street View unavailable'}</Missing>
         )}
       </Frame>
     </div>

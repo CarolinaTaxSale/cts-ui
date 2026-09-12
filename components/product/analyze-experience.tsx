@@ -4,8 +4,7 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'rea
 import { List, Map as MapIcon } from 'lucide-react'
 import { useProduct } from '@/components/product/product-context'
 import { Skeleton } from '@/components/product/skeleton'
-import { getDelinquentParcels } from '@/lib/api'
-import { useApiStatus } from '@/lib/apiStatus'
+import { getDelinquentParcels } from '@/lib/api-client'
 import { toAnalyzeSummaryRow, type AnalyzeSummaryRow } from '@/components/analyze/analyze-row'
 import { useSelectedParcel } from '@/components/analyze/use-selected-parcel'
 import { ParcelMap } from '@/components/analyze/parcel-map'
@@ -33,7 +32,6 @@ function PopupCard({ row, onOpen }: { row: AnalyzeSummaryRow; onOpen: (id: strin
 // the layout's own width (an @container), not the viewport's.
 export function AnalyzeExperience() {
   const { county, savedParcelIds, toggleSavedParcel } = useProduct()
-  const apiStatus = useApiStatus()
   const [rows, setRows] = useState<AnalyzeSummaryRow[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -60,8 +58,7 @@ export function AnalyzeExperience() {
     return () => { cancelled = true }
   }, [county.id])
 
-  const serverError = !!loadError && apiStatus !== 'unreachable'
-  const showData = rows !== null || serverError
+  const showData = rows !== null || loadError !== null
   const parcels = useMemo(() => rows ?? [], [rows])
   const deferredFilters = useDeferredValue(filters)
   const deferredSort = useDeferredValue(sort)
@@ -95,8 +92,8 @@ export function AnalyzeExperience() {
     // (no tab bar, no breadcrumbs/title block above the filters here).
     <div className="flex h-[calc(100dvh-8rem)] min-h-[34rem] flex-col gap-4">
       {showData && <FiltersBar filters={filters} setFilters={setFilters} />}
-      {serverError && (
-        <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+      {loadError && (
+        <div role="alert" className="rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
           <p className="font-semibold">Couldn&apos;t load parcels</p>
           <p className="mt-1 line-clamp-3 break-words opacity-90">{loadError}</p>
         </div>

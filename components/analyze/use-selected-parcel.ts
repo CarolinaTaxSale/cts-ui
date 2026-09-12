@@ -6,7 +6,7 @@
 // for). Entries are never evicted once loaded, so reopening a parcel is instant.
 
 import { useCallback, useRef, useState } from 'react'
-import { getParcel } from '@/lib/api'
+import { getParcel } from '@/lib/api-client'
 import { toAnalyzeRow, type AnalyzeRow } from './analyze-row'
 
 export function useSelectedParcel(countyId: string) {

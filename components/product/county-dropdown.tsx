@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { useClickOutside } from '@/components/product/use-click-outside'
-import type { County } from '@/lib/api'
+import type { County } from '@/lib/types'
 
 // Replaces admin-ui's always-visible county sidebar with a single dropdown -
 // this app has exactly one screen (the Analyze experience), so there's no

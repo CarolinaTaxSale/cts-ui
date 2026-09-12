@@ -6,7 +6,7 @@ import { CountyDropdown } from '@/components/product/county-dropdown'
 import { AccountMenu } from '@/components/product/account-menu'
 import { ProductProvider } from '@/components/product/product-context'
 import { AnalyzeExperience } from '@/components/product/analyze-experience'
-import type { County } from '@/lib/api'
+import type { County } from '@/lib/types'
 
 // The consumer app's entire screen real estate: a slim top bar (brand, county
 // picker, account menu - no Overview/Ingest/Execute tabs, no county
