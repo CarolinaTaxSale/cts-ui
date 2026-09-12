@@ -13,14 +13,14 @@ export function formatFeet(ft: number): string {
   return `${Math.round(ft).toLocaleString()} ft`
 }
 
-// Whole dollars for the headline figures (market value); cents only where the
-// county bills them (taxes owed).
-export function formatUsd(amount: number, { cents = false } = {}): string {
+// Whole dollars everywhere in this app - no cents, even for figures (like
+// taxes owed) a county bills to the cent.
+export function formatUsd(amount: number): string {
   return amount.toLocaleString(undefined, {
     style: 'currency',
     currency: 'USD',
-    minimumFractionDigits: cents ? 2 : 0,
-    maximumFractionDigits: cents ? 2 : 0,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   })
 }
 

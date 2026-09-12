@@ -2,9 +2,10 @@
 
 import { useRef } from 'react'
 import { Dialog } from '@base-ui/react/dialog'
-import { ExternalLink, Heart, X } from 'lucide-react'
+import { ExternalLink, Heart, NotebookPen, X } from 'lucide-react'
 import { formatUsd, toDisplayCase } from '@/lib/format'
 import { ParcelDetail } from './parcel-detail'
+import { useParcelNotes } from './use-parcel-notes'
 import type { AnalyzeRow, AnalyzeSummaryRow } from './analyze-row'
 
 // Everything about one parcel - owners and their other holdings, valuation,
@@ -33,6 +34,7 @@ export function ParcelDetailDialog({
   onToggleSave: () => void
 }) {
   const popupRef = useRef<HTMLDivElement>(null)
+  const notes = useParcelNotes(row?.id ?? '')
   return (
     <Dialog.Root open={open && row !== null} onOpenChange={(next) => { if (!next) onClose() }}>
       <Dialog.Portal>
@@ -46,11 +48,11 @@ export function ParcelDetailDialog({
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline gap-x-3">
                     {row.marketValue > 0 ? (
-                      <span className="text-2xl font-bold tracking-tight">{formatUsd(row.marketValue, { cents: true })}</span>
+                      <span className="text-2xl font-bold tracking-tight">{formatUsd(row.marketValue)}</span>
                     ) : (
                       <span className="text-lg font-semibold text-muted-foreground">No market value</span>
                     )}
-                    <span className="font-semibold text-destructive">{formatUsd(row.taxesOwed, { cents: true })} owed</span>
+                    <span className="font-semibold text-destructive">{formatUsd(row.taxesOwed)} owed</span>
                   </div>
                   <Dialog.Title className="mt-1 truncate text-base font-semibold">
                     {row.address ? toDisplayCase(row.address) : 'No site address'}
@@ -68,6 +70,19 @@ export function ParcelDetailDialog({
                   )}
                   <button
                     type="button"
+                    title={notes.statusLabel}
+                    aria-label={notes.statusLabel}
+                    onClick={notes.toggle}
+                    disabled={notes.notesOpen && !notes.canSave}
+                    className={`icon-button relative disabled:opacity-40 ${notes.notesOpen ? 'border-primary text-primary' : ''}`}
+                  >
+                    <NotebookPen size={18} />
+                    {notes.isDirty && !notes.isEmpty && (
+                      <span aria-hidden className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-primary" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
                     aria-label={saved ? 'Unsave parcel' : 'Save parcel'}
                     aria-pressed={saved}
                     onClick={onToggleSave}
@@ -81,7 +96,14 @@ export function ParcelDetailDialog({
                 </div>
               </header>
               <div className="min-h-0 overflow-y-auto">
-                <ParcelDetail key={row.id} row={row} detail={detail} loading={loading} />
+                <ParcelDetail
+                  row={row}
+                  detail={detail}
+                  loading={loading}
+                  notesOpen={notes.notesOpen}
+                  notesText={notes.notesText}
+                  onNotesChange={notes.onNotesChange}
+                />
               </div>
             </>
           )}
