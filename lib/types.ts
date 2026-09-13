@@ -3,7 +3,7 @@
 // (lib/api-client.ts). The shapes match what data-orchestrator's
 // parcelSerializer produces for admin-ui, field for field, so the Analyze
 // components copied from admin-ui work unchanged - see all-in-one's
-// docs/shared-code-inventory.md.
+// resources/docs/shared-code-inventory.md.
 
 export type County = { id: string; state: string; name: string }
 
