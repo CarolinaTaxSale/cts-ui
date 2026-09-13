@@ -1,5 +1,5 @@
-import { verifyOtp } from '@/lib/otp'
-import { setSessionCookie } from '@/lib/session'
+import { verifyOtp } from '@/lib/server/auth/otp'
+import { setSessionCookie } from '@/lib/server/auth/session'
 
 const CODE_RE = /^\d{6}$/
 
@@ -20,9 +20,8 @@ export async function POST(req: Request) {
   }
 
   if (!result.ok) {
-    const message = result.reason === 'too_many_attempts'
-      ? 'Too many incorrect attempts. Request a new code.'
-      : "That code is incorrect or has expired."
+    const message =
+      result.reason === 'too_many_attempts' ? 'Too many incorrect attempts. Request a new code.' : 'That code is incorrect or has expired.'
     return Response.json({ error: message }, { status: 400 })
   }
 

@@ -1,7 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { MapPinned, Home as HomeIcon, TrendingDown, Search } from 'lucide-react'
-import { getCurrentUser } from '@/lib/session'
+import { getCurrentUser } from '@/lib/server/auth/session'
 import { getDelinquentParcels } from '@/lib/server/parcels'
 import { PreviewCard } from '@/components/marketing/preview-card'
 

@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { getCurrentUser } from '@/lib/session'
+import { getCurrentUser } from '@/lib/server/auth/session'
 import { plainCounties } from '@/lib/counties'
 import { ProductShell } from '@/components/product/product-shell'
 
