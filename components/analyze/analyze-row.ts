@@ -1,11 +1,11 @@
-// View models for the Analyze tab's parcel cards + map. `AnalyzeSummaryRow`
+// View models for the Analyze experience's parcel cards + map. `AnalyzeSummaryRow`
 // projects the lightweight `ParcelSummary` list (what every card renders and
 // what the map places pins from) - the derivation is already done server-side
-// (see data-orchestrator/README.md's `ParcelSummary`). `AnalyzeRow` projects a
-// full `Parcel`, fetched on demand for exactly one parcel at a time (the detail
-// dialog, and the map's single selected outline) - see use-selected-parcel.ts.
+// (lib/server/parcels.ts). `AnalyzeRow` projects a full `Parcel`, fetched on
+// demand for exactly one parcel at a time (the detail dialog, and the map's
+// single selected outline) - see use-selected-parcel.ts.
 
-import type { Owner, Parcel, ParcelSummary, PaymentHistoryEntry, Sale, StreetViewInsight, TaxHistoryEntry, Valuation } from '@/lib/api'
+import type { Owner, Parcel, ParcelSummary, PaymentHistoryEntry, Sale, StreetViewInsight, TaxHistoryEntry, Valuation } from '@/lib/types'
 import { toLatLng } from '@/components/product/leaflet-constants'
 
 export type AnalyzeSummaryRow = {
@@ -46,7 +46,7 @@ export type AnalyzeRow = {
   address: string
   zoning: string[]
   owners: Owner[]
-  // Parcel-level owner-location insight (data-orchestrator `insights`): miles from
+  // Parcel-level owner-location insight (`parcels.insights`): miles from
   // the parcel to the nearest owner's mailing address, and whether an owner's
   // mailing address is the parcel itself. null when address-normalization hasn't
   // produced the insight yet.
@@ -74,7 +74,7 @@ function firstRing(polygons: number[][][]): [number, number][] {
   return ring
 }
 
-// The same trim the orchestrator applies to ParcelSummary.paymentHistory: drop
+// The same trim lib/server/parcels.ts applies to ParcelSummary.paymentHistory: drop
 // not-yet-issued placeholders (no bill amount and no payment) and order oldest
 // first, so the detail dialog's chart draws exactly what the card's did.
 function issuedBills(history: TaxHistoryEntry[]): PaymentHistoryEntry[] {

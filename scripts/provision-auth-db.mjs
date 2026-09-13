@@ -15,7 +15,7 @@
 //   cts_ui_owner  NOLOGIN - owns the consumer_auth schema and its tables. The
 //                 migration runs as this role.
 //   cts_ui_app    LOGIN - USAGE on consumer_auth plus only the row privileges
-//                 lib/otp.ts uses (TABLE_GRANTS below). No DDL, no TRUNCATE,
+//                 lib/server/auth/otp.ts uses (TABLE_GRANTS below). No DDL, no TRUNCATE,
 //                 nothing in parcels.
 //
 // Idempotent, same pattern as consumer-db.mjs: creates whatever is missing and
@@ -46,7 +46,7 @@ const ROLE = "cts_ui_app";
 const CREDENTIALS_FILE = resolve(root, ".env.auth-db");
 const MIGRATION_FILE = resolve(root, "migrations", "0001_consumer_auth.sql");
 
-// Exactly what lib/otp.ts does to each table. A new table or a new kind of
+// Exactly what lib/server/auth/otp.ts does to each table. A new table or a new kind of
 // query needs its grant added here; the end-of-run check fails until it is.
 const TABLE_GRANTS = {
   // insert a code; select ... for update, then bump attempt_count / set consumed_at

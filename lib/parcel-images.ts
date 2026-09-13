@@ -1,21 +1,26 @@
-// URLs for a parcel's images, served by the orchestrator through the
-// same-origin read-only proxy (see lib/api.ts and
-// app/api/orchestrator/[...path]/route.ts) and cached in its image store, so
-// an <img> can point straight at them.
+// URLs for a parcel's images, served by app/api/counties/[county]/parcels/
+// [parcel]/images/[kind] straight from the image store, so an <img> can point
+// at them.
 
-const ORCHESTRATOR_PROXY = '/api/orchestrator'
+// The kinds `parcels.stored_images` records. Must match data-orchestrator's
+// STORED_IMAGE_KINDS and the table's check constraint.
+export const STORED_IMAGE_KINDS = ['satellite-card', 'satellite-hero', 'street-view'] as const
+export type StoredImageKind = (typeof STORED_IMAGE_KINDS)[number]
 
-const parcelPath = (countyId: string, parcelId: string) =>
-  `${ORCHESTRATOR_PROXY}/${encodeURIComponent(countyId)}/parcels/${encodeURIComponent(parcelId)}`
+export function isStoredImageKind(value: string): value is StoredImageKind {
+  return (STORED_IMAGE_KINDS as readonly string[]).includes(value)
+}
+
+const imageUrl = (countyId: string, parcelId: string, kind: StoredImageKind) =>
+  `/api/counties/${encodeURIComponent(countyId)}/parcels/${encodeURIComponent(parcelId)}/images/${kind}`
 
 // `card` is the Analyze card's 2:1 slot, `hero` the detail view's 4:3 image.
 export function satelliteImageUrl(countyId: string, parcelId: string, size: 'card' | 'hero') {
-  return `${parcelPath(countyId, parcelId)}/satellite?size=${size}`
+  return imageUrl(countyId, parcelId, size === 'card' ? 'satellite-card' : 'satellite-hero')
 }
 
-// 404 when there's no Street View near the parcel.
 export function streetViewImageUrl(countyId: string, parcelId: string) {
-  return `${parcelPath(countyId, parcelId)}/street-view`
+  return imageUrl(countyId, parcelId, 'street-view')
 }
 
 // Shown beside each image: the satellite render has no text of its own, and

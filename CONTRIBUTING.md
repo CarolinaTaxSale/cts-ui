@@ -38,10 +38,11 @@ Land the smallest change that is coherent on its own. A larger idea that comes
 up while working goes in this repo's `TODO.md` or the root `all-in-one`
 `TODO.md`, not into the PR at hand.
 
-## Security boundary
+## Boundaries
 
-This app is public-internet-facing (unlike `admin-ui`, which is an internal
-tool). Anything added to `app/api/orchestrator/[...path]/route.ts` must stay a
-tight allowlist of read-only parcel/county paths - never widen it into a
-generic pass-through proxy, and never forward the orchestrator's job-queue,
-infrastructure, or owner-identity-review endpoints here.
+This app is public-internet-facing, unlike `admin-ui`.
+It reads the `parcels` schema and the image store and writes only `consumer_auth`; it never calls `data-orchestrator`, `data-retriever` or `admin-ui`, which don't exist in production.
+Code under `lib/server/` imports `server-only`, so a client component that pulls in a query or a credential fails the build instead of shipping it to the browser.
+
+Some code here is copied from the other services (query rules, types, the county list, the Analyze components).
+When you change one side, change the other, and keep all-in-one's `resources/docs/shared-code-inventory.md` accurate.

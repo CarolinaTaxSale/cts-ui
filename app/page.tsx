@@ -1,14 +1,15 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { MapPinned, Home as HomeIcon, TrendingDown, Search } from 'lucide-react'
-import { getCurrentUser } from '@/lib/session'
-import { getPreviewParcels } from '@/lib/parcels-preview-server'
+import { getCurrentUser } from '@/lib/server/auth/session'
+import { getDelinquentParcels } from '@/lib/server/parcels'
 import { PreviewCard } from '@/components/marketing/preview-card'
 
 export default async function LandingPage() {
   const [user, previewParcels] = await Promise.all([
     getCurrentUser(),
-    getPreviewParcels('sc.york', 3),
+    // Best effort: without the database the page still renders, minus the live strip.
+    getDelinquentParcels('sc.york', { limit: 3 }).catch(() => []),
   ])
   const ctaHref = user ? '/app' : '/login'
   const ctaLabel = user ? 'Go to your dashboard' : 'Get started free'

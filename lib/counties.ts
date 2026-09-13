@@ -1,12 +1,7 @@
-// The counties this app serves, and the source of truth for it. This used to
-// be a GET /counties call to the orchestrator (see lib/counties-server.ts,
-// now removed); the orchestrator/retriever/admin-ui stack is purely a local
-// data-collection tool, not something this app can depend on in production,
-// so the list is copied here instead - mirrors
-// data-orchestrator/src/lib/countyValidation.ts exactly. Add a county by
-// adding a row; comment one out to disable it everywhere without losing its
-// config.
-import type { County } from './api'
+// The counties this app serves. A copy of data-orchestrator's
+// countyValidation.ts list (see all-in-one's resources/docs/shared-code-inventory.md):
+// add or disable a county in both.
+import type { County } from './types'
 
 type CountyConfig = County & { countyParcelUrl: (parcelId: string) => string }
 
@@ -35,10 +30,21 @@ export function getCountyConfig(countyId: string): CountyConfig | undefined {
 
 // Plain `{id, state, name}` only - a Server Component can't pass
 // `countyParcelUrl` (a function) as a prop to a Client Component, so anything
-// handing counties to client code (the product shell, its county dropdown)
-// needs this instead of COUNTIES directly.
+// handing counties to client code (the product shell, its county menu) needs
+// this instead of COUNTIES directly.
 export function plainCounties(): County[] {
   return COUNTIES.map(({ id, state, name }) => ({ id, state, name }))
+}
+
+/** The product URL for a county: `sc.york` -> `/app/sc/york`. */
+export function countyPath(county: Pick<County, 'id'>): string {
+  const [state, slug] = county.id.split('.')
+  return `/app/${state}/${slug}`
+}
+
+/** The county a `/app/:state/:county` URL names, or undefined. */
+export function countyFromPath(state: string, slug: string): County | undefined {
+  return plainCounties().find((c) => c.id === `${state}.${slug}`)
 }
 
 export function isValidCounty(countyId: string): boolean {

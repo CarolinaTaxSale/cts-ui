@@ -1,11 +1,13 @@
-// Cookie plumbing around lib/otp.ts's session tokens. The cookie holds the
-// raw token; only its hash is ever stored (see lib/otp.ts), so a leaked DB
-// row can't be replayed as a cookie.
+import 'server-only'
+
+// Cookie plumbing around otp.ts's session tokens. The cookie holds the raw
+// token; only its hash is ever stored, so a leaked DB row can't be replayed as
+// a cookie.
 
 import { cookies } from 'next/headers'
 import { destroySession, getSessionUser, type SessionUser } from './otp'
 
-export const SESSION_COOKIE = 'cts_session'
+const SESSION_COOKIE = 'cts_session'
 const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60
 
 export async function setSessionCookie(token: string) {
@@ -21,12 +23,11 @@ export async function setSessionCookie(token: string) {
 
 export async function clearSessionCookie() {
   const store = await cookies()
-  const token = store.get(SESSION_COOKIE)?.value
-  await destroySession(token)
+  await destroySession(store.get(SESSION_COOKIE)?.value)
   store.delete(SESSION_COOKIE)
 }
 
-/** Server Components / Server Actions only - reads the incoming request's cookie jar. */
+/** The signed-in user for this request (Server Components and route handlers), or null. */
 export async function getCurrentUser(): Promise<SessionUser | null> {
   const store = await cookies()
   return getSessionUser(store.get(SESSION_COOKIE)?.value)
