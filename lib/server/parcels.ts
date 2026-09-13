@@ -6,7 +6,7 @@ import 'server-only'
 // The response shapes, and the rules behind acreage, payment history and the
 // owner-identity overlay, are ports of data-orchestrator's routes/parcels.ts,
 // lib/parcelSerializer.ts, lib/acreage.ts and lib/sharedFootprints.ts. Both
-// sides must change together; all-in-one's docs/shared-code-inventory.md lists
+// sides must change together; all-in-one's resources/docs/shared-code-inventory.md lists
 // every copied rule and where it comes from.
 
 import { getCountyConfig } from '../counties'

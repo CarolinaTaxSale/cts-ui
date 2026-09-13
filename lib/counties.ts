@@ -1,5 +1,5 @@
 // The counties this app serves. A copy of data-orchestrator's
-// countyValidation.ts list (see all-in-one's docs/shared-code-inventory.md):
+// countyValidation.ts list (see all-in-one's resources/docs/shared-code-inventory.md):
 // add or disable a county in both.
 import type { County } from './types'
 
