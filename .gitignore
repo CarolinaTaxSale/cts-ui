@@ -26,6 +26,8 @@ yarn-error.log*
 .env*.local
 .env
 !.env.example
+# the pdo-db login written by `npm run provision-auth-db`
+.env.auth-db
 
 # vercel
 .vercel

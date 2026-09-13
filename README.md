@@ -28,3 +28,9 @@ Auth (email OTP) reads/writes the `consumer_auth` schema on the `pdo-db`
 Postgres instance on Fly.io - see `AUTH_DB_URL` in `.env.example` and
 `scripts/provision-auth-db.mjs`. OTP codes are logged to the server console
 in place of a real email until Brevo is wired up in `lib/email.ts`.
+
+`npm run provision-auth-db` (idempotent; `-- --rotate` for a new password) sets that store up.
+The schema and its tables belong to the no-login `cts_ui_owner` role.
+The app connects as `cts_ui_app`, which gets only the row privileges `lib/otp.ts` uses (`TABLE_GRANTS` in the script) and nothing in `parcels`.
+A new auth table or query needs its grant added there, and the script's closing privilege check fails until it is.
+The login lands in the gitignored `.env.auth-db`: copy it into `.env` as `AUTH_DB_URL`, and into all-in-one's root `.env` as `CTS_UI_AUTH_DB_URL` for the compose stack.
