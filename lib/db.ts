@@ -2,7 +2,7 @@
 // `pdo-db` (Fly.io), reached over a dedicated least-privilege role
 // (`cts_ui_app` - see scripts/provision-auth-db.mjs), never the
 // orchestrator's `etl_writer`/`consumer_reader` roles. postgres.js is used
-// (not psql/libpq) because Fly's pg_tls edge offers TLS ALPN, which libpq 17+
+// (not psql/libpq) because libpq 17+ offers TLS ALPN, which Fly's pg_tls edge
 // rejects - see all-in-one's consumer-db provisioning notes.
 //
 // One module-level client, reused across requests/warm lambdas (postgres.js
@@ -18,7 +18,10 @@ declare global {
 function createClient() {
   const url = process.env.AUTH_DB_URL
   if (!url) throw new Error('AUTH_DB_URL is not set - see .env.example')
-  return postgres(url, { ssl: 'require', max: 5 })
+  // TLS comes from the URL's sslmode (verify-full, as provision-auth-db.mjs
+  // writes it). An explicit `ssl` option would override it, and `ssl: 'require'`
+  // silently skips certificate verification.
+  return postgres(url, { max: 5 })
 }
 
 // Lazy: `next build` statically imports every route module to collect its
