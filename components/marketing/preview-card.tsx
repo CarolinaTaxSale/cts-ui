@@ -1,7 +1,7 @@
 import Image from 'next/image'
 import { formatUsd, toDisplayCase } from '@/lib/format'
 import { satelliteImageUrl } from '@/lib/parcel-images'
-import type { ParcelSummary } from '@/lib/api'
+import type { ParcelSummary } from '@/lib/types'
 
 // A stripped-down, non-interactive read of the real product's parcel card -
 // no save/open handlers, no map pin sync - just enough to show a visitor what
