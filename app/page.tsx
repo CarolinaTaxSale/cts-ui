@@ -61,8 +61,8 @@ export default async function LandingPage() {
               />
             </div>
             <div className="space-y-1 p-5">
-              <p className="text-xl font-semibold tracking-tight">$3,299,000.00</p>
-              <p className="text-sm font-medium text-destructive">$97,941.33 owed</p>
+              <p className="text-xl font-semibold tracking-tight">$3,299,000</p>
+              <p className="text-sm font-medium text-destructive">$97,941 owed</p>
               <p className="text-sm text-muted-foreground">415 Clouds Way, Rock Hill, SC, 29732</p>
             </div>
           </div>

@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { Skeleton } from '@/components/product/skeleton'
 import { formatMiles, formatUsd } from '@/lib/format'
 import { ParcelHeroImages } from './parcel-hero-images'
@@ -8,75 +7,28 @@ import { ParcelMap } from './parcel-map'
 import { PaymentTimingChart } from './payment-timing-chart'
 import type { AnalyzeRow, AnalyzeSummaryRow } from './analyze-row'
 
-// Idle time after the last keystroke before an unsaved note autosaves.
-const AUTOSAVE_DELAY_MS = Number(process.env.NEXT_PUBLIC_NOTES_AUTOSAVE_DELAY_MS) || 5000
-
 // The body of the parcel detail dialog (parcel-detail-dialog.tsx). `row` (the
 // card's own summary data) renders instantly; `detail` - owners, full zoning,
 // valuations, sales, and the polygon outline - is fetched lazily for just this
 // one parcel (see use-selected-parcel.ts) once it's opened, and renders as a
-// skeleton until it arrives.
+// skeleton until it arrives. Notes state lives one level up (see
+// use-parcel-notes.ts) because the button that opens/saves the textarea below
+// sits in the dialog's header, not in this scrollable body.
 export function ParcelDetail({
   row,
   detail,
   loading,
+  notesOpen,
+  notesText,
+  onNotesChange,
 }: {
   row: AnalyzeSummaryRow
   detail: AnalyzeRow | undefined
   loading: boolean
+  notesOpen: boolean
+  notesText: string
+  onNotesChange: (value: string) => void
 }) {
-  const [notesOpen, setNotesOpen] = useState(false)
-  const [notesText, setNotesText] = useState('')
-  const [lastSavedText, setLastSavedText] = useState('')
-  const [saveKind, setSaveKind] = useState<'manual' | 'auto'>('manual')
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const autosaveTimer = useRef<number | null>(null)
-
-  const isEmpty = notesText.trim() === ''
-  const isDirty = notesText !== lastSavedText
-  const canSave = notesOpen && !isEmpty && isDirty
-
-  useEffect(() => {
-    if (notesOpen) textareaRef.current?.focus()
-  }, [notesOpen])
-
-  useEffect(() => () => {
-    if (autosaveTimer.current) window.clearTimeout(autosaveTimer.current)
-  }, [])
-
-  const saveManually = () => {
-    if (autosaveTimer.current) { window.clearTimeout(autosaveTimer.current); autosaveTimer.current = null }
-    setLastSavedText(notesText)
-    setSaveKind('manual')
-  }
-
-  const handleNotesChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
-    const value = e.target.value
-    setNotesText(value)
-    if (autosaveTimer.current) window.clearTimeout(autosaveTimer.current)
-    autosaveTimer.current = window.setTimeout(() => {
-      autosaveTimer.current = null
-      setLastSavedText((prevSaved) => {
-        if (value.trim() === '' || value === prevSaved) return prevSaved
-        setSaveKind('auto')
-        return value
-      })
-    }, AUTOSAVE_DELAY_MS)
-  }
-
-  const handleNotesButtonClick = () => {
-    if (!notesOpen) { setNotesOpen(true); return }
-    if (canSave) saveManually()
-  }
-
-  const notesLabel = !notesOpen
-    ? 'Add notes'
-    : isEmpty
-      ? 'Start typing below...'
-      : isDirty
-        ? 'Save notes'
-        : `${saveKind === 'manual' ? 'Saved' : 'Autosaved'} notes`
-
   // detail fetch failed silently (see use-selected-parcel.ts) - tell the
   // operator rather than shimmering forever.
   const detailUnavailable = !loading && !detail
@@ -87,6 +39,15 @@ export function ParcelDetail({
 
   return (
     <div className="p-5">
+      {notesOpen && (
+        <textarea
+          autoFocus
+          value={notesText}
+          onChange={(e) => onNotesChange(e.target.value)}
+          placeholder="Add notes about this parcel…"
+          className="mb-5 h-28 w-full resize-y rounded-lg border border-input bg-background p-3 text-sm outline-none focus:border-primary"
+        />
+      )}
       <div className="mb-5">
         <ParcelHeroImages countyId={row.countyId} parcelId={row.id} streetView={detail?.streetView} />
       </div>
@@ -135,7 +96,7 @@ export function ParcelDetail({
             <div className="space-y-1">
               <div className="flex justify-between text-sm"><span className="text-muted-foreground">Acreage</span><span className="font-mono">{row.acres == null ? '-' : row.acres.toFixed(2)}</span></div>
               <div className="flex justify-between gap-3 text-sm"><span className="shrink-0 text-muted-foreground">Zoning</span><span className="text-right">{detail ? detail.zoning.join(', ') || '-' : row.type}</span></div>
-              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Taxes owed</span><span className="font-mono">{formatUsd(row.taxesOwed, { cents: true })}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Taxes owed</span><span className="font-mono">{formatUsd(row.taxesOwed)}</span></div>
             </div>
           </div>
           <div>
@@ -144,7 +105,7 @@ export function ParcelDetail({
               {detail
                 ? marketValuations.length
                   ? marketValuations.map((v) => (
-                      <div key={v.label} className="flex justify-between text-sm"><span className="text-muted-foreground">{v.label}</span><span className="font-mono">{formatUsd(v.amount, { cents: true })}</span></div>
+                      <div key={v.label} className="flex justify-between text-sm"><span className="text-muted-foreground">{v.label}</span><span className="font-mono">{formatUsd(v.amount)}</span></div>
                     ))
                   : <p className="text-sm text-muted-foreground">-</p>
                 : detailUnavailable
@@ -171,7 +132,7 @@ export function ParcelDetail({
                         <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">{s.date ? new Date(s.date).toLocaleDateString() : '-'}</td>
                         <td className="px-3 py-2">{s.seller}</td>
                         <td className="px-3 py-2">{s.buyer}</td>
-                        <td className="whitespace-nowrap px-3 py-2 text-right font-mono">{formatUsd(s.price, { cents: true })}</td>
+                        <td className="whitespace-nowrap px-3 py-2 text-right font-mono">{formatUsd(s.price)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -186,9 +147,6 @@ export function ParcelDetail({
           {/* The card's summary already carries the same bills, so the chart
               draws straight away rather than waiting on the detail fetch. */}
           <PaymentTimingChart history={detail?.paymentHistory ?? row.paymentHistory} />
-          <div>
-            <button onClick={handleNotesButtonClick} disabled={notesOpen && !canSave} className="secondary-button bg-muted hover:bg-secondary disabled:opacity-40">{notesLabel}</button>
-          </div>
         </div>
         {/* isolate: Leaflet's internal panes/controls use z-indexes up to
             ~1000, which without a contained stacking context here would climb
@@ -203,15 +161,6 @@ export function ParcelDetail({
           )}
         </div>
       </div>
-      {notesOpen && (
-        <textarea
-          ref={textareaRef}
-          value={notesText}
-          onChange={handleNotesChange}
-          placeholder="Add notes about this parcel…"
-          className="mt-5 h-28 w-full resize-y rounded-lg border border-input bg-background p-3 text-sm outline-none focus:border-primary"
-        />
-      )}
     </div>
   )
 }
