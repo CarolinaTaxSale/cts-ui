@@ -248,6 +248,13 @@ export function ParcelMapInner({
         scrollWheelZoom
         maxZoom={MAP_MAX_ZOOM}
         minZoom={MAP_MIN_ZOOM}
+        // Leaflet keeps the previous zoom level's tiles until the new ones have
+        // faded in, which it times with animation frames. When frames stall (a
+        // background tab), the old tiles never go - invisible under opaque base
+        // tiles, but a blown-up, blurry copy of the satellite labels shows
+        // through the transparent label tiles. Without the fade, a tile counts as
+        // shown the moment it loads and the old level is pruned straight away.
+        fadeAnimation={false}
       >
         <MapLayers choice={layers} />
         <TrackContainerSize initialBounds={initialBounds} fitOptions={fitOptions} />
