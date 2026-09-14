@@ -157,7 +157,13 @@ type ParcelRow = {
   hasInsights: boolean
   ownerDistance: string | null
   isOwnerAddress: boolean | null
-  streetView: { status: 'ok' | 'none'; capturedAt?: string | null } | null
+  streetView: {
+    status: 'ok' | 'none'
+    capturedAt?: string | null
+    panoId?: string | null
+    panoLat?: number | null
+    panoLng?: number | null
+  } | null
   hasStreetViewImage: boolean
   taxOwed: string | null
   latePayments: number | null
@@ -244,7 +250,21 @@ export async function getParcel(countyId: string, parcelId: string): Promise<Par
           isOwnerAddress: head.isOwnerAddress ?? false,
           // Available means there's an image in the store to show, not just a pano on Google.
           streetView: head.hasStreetViewImage
-            ? { available: true, capturedAt: head.streetView?.capturedAt ?? null }
+            ? {
+                available: true,
+                capturedAt: head.streetView?.capturedAt ?? null,
+                ...(head.streetView?.panoId
+                  ? {
+                      pano: {
+                        id: head.streetView.panoId,
+                        position:
+                          head.streetView.panoLat != null && head.streetView.panoLng != null
+                            ? [head.streetView.panoLat, head.streetView.panoLng]
+                            : null,
+                      },
+                    }
+                  : {}),
+              }
             : head.streetView?.status === 'none'
               ? { available: false, capturedAt: null }
               : null,

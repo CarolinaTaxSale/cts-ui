@@ -49,7 +49,7 @@ export function ParcelDetail({
         />
       )}
       <div className="mb-5">
-        <ParcelHeroImages countyId={row.countyId} parcelId={row.id} streetView={detail?.streetView} />
+        <ParcelHeroImages countyId={row.countyId} parcelId={row.id} center={row.centroid} streetView={detail?.streetView} />
       </div>
       <div className="grid gap-5 lg:grid-cols-2">
         <div className="space-y-4">
