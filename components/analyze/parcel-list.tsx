@@ -1,6 +1,6 @@
 'use client'
 
-import { memo, useRef, useState } from 'react'
+import { memo, useRef, useState, type ReactNode } from 'react'
 import { ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { ParcelCard } from './parcel-card'
 import { SORT_OPTIONS, type ParcelSortKey } from './parcel-sort'
@@ -38,21 +38,25 @@ const ParcelListItem = memo(function ParcelListItem({
   onToggleSave,
   onOpen,
   onHover,
+  note,
+  showCounty,
 }: {
   row: AnalyzeSummaryRow
   saved: boolean
   highlighted: boolean
-  onToggleSave: (id: string) => void
-  onOpen: (id: string) => void
-  onHover: (id: string | null) => void
+  onToggleSave: (key: string) => void
+  onOpen: (key: string) => void
+  onHover: (key: string | null) => void
+  note: string | undefined
+  showCounty: boolean
 }) {
   return (
     <div
-      onMouseEnter={() => onHover(row.id)}
+      onMouseEnter={() => onHover(row.key)}
       onMouseLeave={() => onHover(null)}
       className="[contain-intrinsic-size:auto_23rem] [content-visibility:auto]"
     >
-      <ParcelCard row={row} saved={saved} onToggleSave={onToggleSave} onOpen={onOpen} highlighted={highlighted} />
+      <ParcelCard row={row} saved={saved} onToggleSave={onToggleSave} onOpen={onOpen} highlighted={highlighted} note={note} showCounty={showCounty} />
     </div>
   )
 })
@@ -67,12 +71,16 @@ export const ParcelList = memo(function ParcelList({
   totalCount,
   sort,
   setSort,
-  savedIds,
+  savedKeys,
+  notePreviews,
   onToggleSave,
   onOpen,
-  selectedId,
+  selectedKey,
   onHover,
   onResetFilters,
+  label = 'Delinquent parcels',
+  emptyState,
+  showCounty = false,
 }: {
   // Already filtered and sorted; `totalCount` is the county's full delinquent
   // count, so the header can say how much the filters removed.
@@ -80,12 +88,18 @@ export const ParcelList = memo(function ParcelList({
   totalCount: number
   sort: ParcelSortKey
   setSort: (sort: ParcelSortKey) => void
-  savedIds: Set<string>
-  onToggleSave: (id: string) => void
-  onOpen: (id: string) => void
-  selectedId: string | null
-  onHover: (id: string | null) => void
-  onResetFilters: () => void
+  // Keyed by parcelKey, like every id below.
+  savedKeys: Set<string>
+  notePreviews: Map<string, string>
+  onToggleSave: (key: string) => void
+  onOpen: (key: string) => void
+  selectedKey: string | null
+  onHover: (key: string | null) => void
+  onResetFilters?: () => void
+  label?: string
+  // Shown in place of the cards when there are none; defaults to the filters' "no matches".
+  emptyState?: ReactNode
+  showCounty?: boolean
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [page, setPage] = useState(0)
@@ -106,7 +120,7 @@ export const ParcelList = memo(function ParcelList({
   }
 
   return (
-    <section aria-label="Delinquent parcels" className="flex h-full min-h-0 flex-col">
+    <section aria-label={label} className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center justify-between gap-3 pb-3">
         <h2 className="min-w-0 truncate text-sm font-semibold">
           {parcels.length === totalCount
@@ -132,22 +146,26 @@ export const ParcelList = memo(function ParcelList({
           button from covering the last card or the pager. */}
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto pb-16 [scrollbar-gutter:stable] @min-[40rem]:pr-1 @min-[40rem]:pb-1">
         {parcels.length === 0 ? (
-          <div className="panel flex flex-col items-center gap-3 p-8 text-center">
-            <p className="text-sm text-muted-foreground">No parcels match these filters.</p>
-            <button type="button" onClick={onResetFilters} className="secondary-button">Reset filters</button>
-          </div>
+          emptyState ?? (
+            <div className="panel flex flex-col items-center gap-3 p-8 text-center">
+              <p className="text-sm text-muted-foreground">No parcels match these filters.</p>
+              {onResetFilters && <button type="button" onClick={onResetFilters} className="secondary-button">Reset filters</button>}
+            </div>
+          )
         ) : (
           <>
             <div className="grid grid-cols-1 gap-3 @min-[68rem]:grid-cols-2">
               {pageRows.map((row) => (
                 <ParcelListItem
-                  key={row.id}
+                  key={row.key}
                   row={row}
-                  saved={savedIds.has(row.id)}
-                  highlighted={row.id === selectedId}
+                  saved={savedKeys.has(row.key)}
+                  highlighted={row.key === selectedKey}
                   onToggleSave={onToggleSave}
                   onOpen={onOpen}
                   onHover={onHover}
+                  note={notePreviews.get(row.key)}
+                  showCounty={showCounty}
                 />
               ))}
             </div>

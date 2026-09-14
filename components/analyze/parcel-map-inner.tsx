@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
-import type { Popup as LeafletPopup } from 'leaflet'
+import type { FitBoundsOptions, Popup as LeafletPopup } from 'leaflet'
 import { MapContainer, Polygon, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet'
 import { formatUsdCompact } from '@/lib/format'
 import { ParcelPinsLayer, type MapPin } from './parcel-pins-layer'
@@ -18,6 +18,10 @@ import {
 } from '@/components/product/leaflet-constants'
 
 type PlacedPin = AnalyzeSummaryRow & { centroid: [number, number] }
+
+// Fitting the map to pins alone - one saved parcel, or a few on one street -
+// would otherwise zoom all the way in on a dot with no surroundings to read.
+const PIN_FIT_MAX_ZOOM = 16
 
 // Zoomed out, a county's worth of price labels is an unreadable pile, so pins
 // are plain dots until the map is close enough for the labels to separate.
@@ -55,7 +59,7 @@ function ParcelPins({
 
   // A parcel with no market value on file has no price to show, so it stays a dot.
   const mapPins = useMemo<MapPin[]>(
-    () => pins.map((p) => ({ id: p.id, lat: p.centroid[0], lng: p.centroid[1], label: p.marketValue > 0 ? formatUsdCompact(p.marketValue) : null })),
+    () => pins.map((p) => ({ id: p.key, lat: p.centroid[0], lng: p.centroid[1], label: p.marketValue > 0 ? formatUsdCompact(p.marketValue) : null })),
     [pins],
   )
   useEffect(() => {
@@ -153,9 +157,10 @@ function FlyToOutline({ outline, focusToken }: { outline: AnalyzeRow | null; foc
 // one and two cards wide, or the narrow list/map toggle hiding it entirely. A
 // map that was mounted while hidden never got to fit its initial bounds (it
 // had no size to fit them into), so it does that the first time it's shown.
-function TrackContainerSize({ initialBounds }: { initialBounds: [number, number][] | null }) {
+function TrackContainerSize({ initialBounds, fitOptions }: { initialBounds: [number, number][] | null; fitOptions: FitBoundsOptions }) {
   const map = useMap()
   const boundsRef = useRef(initialBounds)
+  const fitOptionsRef = useRef(fitOptions)
 
   useEffect(() => {
     const el = map.getContainer()
@@ -168,7 +173,7 @@ function TrackContainerSize({ initialBounds }: { initialBounds: [number, number]
       map.invalidateSize({ debounceMoveend: true })
       if (!everSized) {
         everSized = true
-        if (boundsRef.current) map.fitBounds(boundsRef.current)
+        if (boundsRef.current) map.fitBounds(boundsRef.current, fitOptionsRef.current)
       }
     })
     observer.observe(el)
@@ -186,8 +191,8 @@ function TrackContainerSize({ initialBounds }: { initialBounds: [number, number]
 export function ParcelMapInner({
   pins = [],
   outline = null,
-  selectedId = null,
-  hoveredId = null,
+  selectedKey = null,
+  hoveredKey = null,
   focusToken = 0,
   satellite = false,
   onSelect,
@@ -195,20 +200,23 @@ export function ParcelMapInner({
 }: {
   pins?: AnalyzeSummaryRow[]
   outline?: AnalyzeRow | null
-  selectedId?: string | null
+  // Parcel keys (parcel-key.ts), as are the pin ids handed to onSelect.
+  selectedKey?: string | null
   // The parcel whose card the pointer is over - its pin lights up like the
-  // selected one, so the operator can see where a card sits on the map.
-  hoveredId?: string | null
+  // selected one, so the user can see where a card sits on the map.
+  hoveredKey?: string | null
   // Bumped by the caller whenever it wants the map to fly to `outline` (see
   // analyze-tab.tsx). Only meaningful when `onSelect` is passed - see the
   // FlyToOutline gate below.
   focusToken?: number
   satellite?: boolean
-  onSelect?: (id: string) => void
+  onSelect?: (key: string) => void
   // What a pin's popup shows when it's clicked - the parcel's card.
   popup?: (row: AnalyzeSummaryRow) => ReactNode
 }) {
   const placedPins = useMemo(() => pins.filter((p): p is PlacedPin => p.centroid !== null), [pins])
+  const fitsOutline = outline !== null && outline.polygon.length > 0
+  const fitOptions = useMemo<FitBoundsOptions>(() => (fitsOutline ? {} : { maxZoom: PIN_FIT_MAX_ZOOM }), [fitsOutline])
   const initialBounds = outline && outline.polygon.length > 0
     ? outline.polygon
     : placedPins.length > 0
@@ -228,11 +236,11 @@ export function ParcelMapInner({
     onSelect?.(id)
   }, [onSelect])
   const closePopup = useCallback(() => setOpenPopup(null), [])
-  const popupRow = popup && openPopup ? placedPins.find((p) => p.id === openPopup.id) ?? null : null
+  const popupRow = popup && openPopup ? placedPins.find((p) => p.key === openPopup.id) ?? null : null
 
   return (
     <MapContainer
-      {...(initialBounds ? { bounds: initialBounds } : { center: FALLBACK_MAP_CENTER, zoom: 11 })}
+      {...(initialBounds ? { bounds: initialBounds, boundsOptions: fitOptions } : { center: FALLBACK_MAP_CENTER, zoom: 11 })}
       className="h-full w-full"
       scrollWheelZoom
       maxZoom={MAP_MAX_ZOOM}
@@ -243,13 +251,13 @@ export function ParcelMapInner({
         attribution={satellite ? SATELLITE_TILE_ATTRIBUTION : TILE_ATTRIBUTION}
         maxZoom={MAP_MAX_ZOOM}
       />
-      <TrackContainerSize initialBounds={initialBounds} />
+      <TrackContainerSize initialBounds={initialBounds} fitOptions={fitOptions} />
       {/* Only the interactive map (the one with pins to click) flies on
           selection - the detail dialog's single-outline map is static and
           already opens fitted to it via `bounds` above, so flying there too
           would just replay the same transition pointlessly on every open. */}
       {onSelect && <FlyToOutline outline={outline} focusToken={focusToken} />}
-      {placedPins.length > 0 && <ParcelPins pins={placedPins} activeIds={[selectedId, hoveredId]} onPinClick={handlePinClick} />}
+      {placedPins.length > 0 && <ParcelPins pins={placedPins} activeIds={[selectedKey, hoveredKey]} onPinClick={handlePinClick} />}
       {popup && popupRow && openPopup && (
         <PinPopup key={openPopup.click} position={popupRow.centroid} onClose={closePopup}>
           {popup(popupRow)}

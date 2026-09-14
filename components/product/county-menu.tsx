@@ -8,20 +8,27 @@ import type { County } from '@/lib/types'
 
 // The county picker in the top bar, in place of admin-ui's county sidebar. Each
 // county is a link to its own URL; Base UI's Menu supplies the keyboard
-// navigation, focus handling and dismissal.
-export function CountyMenu({ counties, active }: { counties: County[]; active: County }) {
+// navigation, focus handling and dismissal. `active` is null on pages that
+// aren't one county's (the saved page).
+export function CountyMenu({ counties, active }: { counties: County[]; active: County | null }) {
   return (
     <Menu.Root>
       <Menu.Trigger className="secondary-button gap-2 data-[popup-open]:bg-muted">
-        <span className="font-mono text-xs text-muted-foreground">{active.state}</span>
-        {active.name}
+        {active ? (
+          <>
+            <span className="font-mono text-xs text-muted-foreground">{active.state}</span>
+            {active.name}
+          </>
+        ) : (
+          'Counties'
+        )}
         <ChevronDown aria-hidden size={15} className="text-muted-foreground" />
       </Menu.Trigger>
       <Menu.Portal>
         <Menu.Positioner sideOffset={8} align="start" className="z-[70] outline-none">
           <Menu.Popup className="panel w-64 origin-[var(--transform-origin)] overflow-hidden py-1 shadow-lg outline-none transition-[opacity,scale] duration-100 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
             {counties.map((county) => {
-              const current = county.id === active.id
+              const current = county.id === active?.id
               return (
                 <Menu.LinkItem
                   key={county.id}

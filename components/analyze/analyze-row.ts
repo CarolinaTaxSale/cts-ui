@@ -7,10 +7,16 @@
 
 import type { Owner, Parcel, ParcelSummary, PaymentHistoryEntry, Sale, StreetViewInsight, TaxHistoryEntry, Valuation } from '@/lib/types'
 import { toLatLng } from '@/components/product/leaflet-constants'
+import { parcelKey } from '@/lib/parcel-key'
 
 export type AnalyzeSummaryRow = {
+  // parcelKey(countyId, id) - what selection, saving and map pins go by, since a
+  // parcel id alone can repeat across counties.
+  key: string
   id: string
   countyId: string
+  // False for a saved parcel that has been paid up since it was saved.
+  isDelinquent: boolean
   owner: string
   // The first owner's mailing address, or '' when the county lists none.
   ownerAddress: string
@@ -36,6 +42,7 @@ export type AnalyzeSummaryRow = {
 }
 
 export type AnalyzeRow = {
+  key: string
   id: string
   countyId: string
   owner: string
@@ -86,8 +93,10 @@ function issuedBills(history: TaxHistoryEntry[]): PaymentHistoryEntry[] {
 
 export function toAnalyzeSummaryRow(p: ParcelSummary): AnalyzeSummaryRow {
   return {
+    key: parcelKey(p.countyId, p.parcelId),
     id: p.parcelId,
     countyId: p.countyId,
+    isDelinquent: p.isDelinquent,
     owner: p.owner || '-',
     ownerAddress: p.ownerAddress ?? '',
     type: p.type || '-',
@@ -108,6 +117,7 @@ export function toAnalyzeSummaryRow(p: ParcelSummary): AnalyzeSummaryRow {
 
 export function toAnalyzeRow(p: Parcel): AnalyzeRow {
   return {
+    key: parcelKey(p.countyId, p.parcelId),
     id: p.parcelId,
     countyId: p.countyId,
     owner: p.owners[0]?.name ?? '-',

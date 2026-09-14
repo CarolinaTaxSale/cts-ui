@@ -2,6 +2,7 @@
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
 import { List, Map as MapIcon } from 'lucide-react'
+import { useLibrary } from '@/components/product/library-context'
 import { useProduct } from '@/components/product/product-context'
 import { Skeleton } from '@/components/product/skeleton'
 import { getDelinquentParcels } from '@/lib/api-client'
@@ -19,36 +20,46 @@ import { DEFAULT_SORT, sortParcels, type ParcelSortKey } from '@/components/anal
 // through props, so the `popup` render prop handed to the map keeps one
 // identity when a heart is toggled - react-leaflet portals the popup, and
 // context crosses portals.
-function PopupCard({ row, onOpen }: { row: AnalyzeSummaryRow; onOpen: (id: string) => void }) {
-  const { savedParcelIds, toggleSavedParcel } = useProduct()
-  return <ParcelCard row={row} saved={savedParcelIds.has(row.id)} onToggleSave={toggleSavedParcel} onOpen={onOpen} />
+export function PopupCard({ row, onOpen, showCounty = false }: { row: AnalyzeSummaryRow; onOpen: (key: string) => void; showCounty?: boolean }) {
+  const { savedKeys, toggleSaved, notePreviews } = useLibrary()
+  return (
+    <ParcelCard
+      row={row}
+      saved={savedKeys.has(row.key)}
+      onToggleSave={toggleSaved}
+      onOpen={onOpen}
+      note={notePreviews.get(row.key)}
+      showCounty={showCounty}
+    />
+  )
 }
 
 // The consumer product experience - admin-ui's Analyze tab, with the
-// breadcrumbs/page-title chrome dropped (this app has exactly one screen, so
-// there's nothing for a title to disambiguate) and sized against a top bar
+// breadcrumbs/page-title chrome dropped (a county page has exactly one screen,
+// so there's nothing for a title to disambiguate) and sized against a top bar
 // only, no tab bar above it. Same search-results layout otherwise: filters
 // across the top, the map on the left and parcel cards on the right, split by
 // the layout's own width (an @container), not the viewport's.
 export function AnalyzeExperience() {
-  const { county, savedParcelIds, toggleSavedParcel } = useProduct()
+  const { county } = useProduct()
+  const { savedKeys, toggleSaved, notePreviews } = useLibrary()
   const [rows, setRows] = useState<AnalyzeSummaryRow[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [hoveredId, setHoveredId] = useState<string | null>(null)
+  const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null)
   const [focusToken, setFocusToken] = useState(0)
-  const [detailId, setDetailId] = useState<string | null>(null)
+  const [detailKey, setDetailKey] = useState<string | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const [narrowView, setNarrowView] = useState<'list' | 'map'>('list')
   const [filters, setFilters] = useState<ParcelFilters>(DEFAULT_FILTERS)
   const [sort, setSort] = useState<ParcelSortKey>(DEFAULT_SORT)
-  const { details, loadingIds, ensureLoaded } = useSelectedParcel(county.id)
+  const { details, loadingKeys, ensureLoaded } = useSelectedParcel()
 
   useEffect(() => {
     let cancelled = false
     setRows(null)
     setLoadError(null)
-    setSelectedId(null)
+    setSelectedKey(null)
     setFilters(DEFAULT_FILTERS)
 
     getDelinquentParcels(county.id)
@@ -66,26 +77,26 @@ export function AnalyzeExperience() {
   const sorted = useMemo(() => sortParcels(visible, deferredSort), [visible, deferredSort])
 
   useEffect(() => {
-    if (selectedId && !visible.some((p) => p.id === selectedId)) setSelectedId(null)
-  }, [visible, selectedId])
+    if (selectedKey && !visible.some((p) => p.key === selectedKey)) setSelectedKey(null)
+  }, [visible, selectedKey])
 
-  const selectPin = useCallback((id: string) => {
-    setSelectedId(id)
-    ensureLoaded(id)
+  const selectPin = useCallback((key: string) => {
+    setSelectedKey(key)
+    ensureLoaded(key)
   }, [ensureLoaded])
 
-  const openParcel = useCallback((id: string) => {
-    setSelectedId(id)
+  const openParcel = useCallback((key: string) => {
+    setSelectedKey(key)
     setFocusToken((t) => t + 1)
-    ensureLoaded(id)
-    setDetailId(id)
+    ensureLoaded(key)
+    setDetailKey(key)
     setDetailOpen(true)
   }, [ensureLoaded])
 
   const popup = useCallback((row: AnalyzeSummaryRow) => <PopupCard row={row} onOpen={openParcel} />, [openParcel])
   const resetFilters = useCallback(() => setFilters({ ...DEFAULT_FILTERS }), [])
 
-  const detailRow = detailId ? parcels.find((p) => p.id === detailId) ?? null : null
+  const detailRow = detailKey ? parcels.find((p) => p.key === detailKey) ?? null : null
 
   return (
     // Viewport height less just the top bar and this container's own padding
@@ -105,9 +116,9 @@ export function AnalyzeExperience() {
             <div className={`isolate min-w-0 flex-1 overflow-hidden rounded-xl border border-border ${narrowView === 'list' ? '@max-[40rem]:hidden' : ''}`}>
               <ParcelMap
                 pins={visible}
-                outline={selectedId ? details[selectedId] : null}
-                selectedId={selectedId}
-                hoveredId={hoveredId}
+                outline={selectedKey ? details[selectedKey] : null}
+                selectedKey={selectedKey}
+                hoveredKey={hoveredKey}
                 focusToken={focusToken}
                 onSelect={selectPin}
                 popup={popup}
@@ -119,11 +130,12 @@ export function AnalyzeExperience() {
                 totalCount={parcels.length}
                 sort={sort}
                 setSort={setSort}
-                savedIds={savedParcelIds}
-                onToggleSave={toggleSavedParcel}
+                savedKeys={savedKeys}
+                notePreviews={notePreviews}
+                onToggleSave={toggleSaved}
                 onOpen={openParcel}
-                selectedId={selectedId}
-                onHover={setHoveredId}
+                selectedKey={selectedKey}
+                onHover={setHoveredKey}
                 onResetFilters={resetFilters}
               />
             </div>
@@ -147,10 +159,8 @@ export function AnalyzeExperience() {
         row={detailRow}
         open={detailOpen}
         onClose={() => setDetailOpen(false)}
-        detail={detailId ? details[detailId] : undefined}
-        loading={detailId ? loadingIds.has(detailId) : false}
-        saved={detailId ? savedParcelIds.has(detailId) : false}
-        onToggleSave={() => { if (detailId) toggleSavedParcel(detailId) }}
+        detail={detailKey ? details[detailKey] : undefined}
+        loading={detailKey ? loadingKeys.has(detailKey) : false}
       />
     </div>
   )
