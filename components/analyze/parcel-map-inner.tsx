@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import type { FitBoundsOptions, Popup as LeafletPopup } from 'leaflet'
-import { MapContainer, Polygon, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet'
+import { MapContainer, Polygon, Popup, useMap, useMapEvents } from 'react-leaflet'
 import { formatUsdCompact } from '@/lib/format'
+import { MapLayerControl, MapLayers, useMapLayerChoice, type BaseLayer } from './map-layers'
 import { ParcelPinsLayer, type MapPin } from './parcel-pins-layer'
 import type { AnalyzeRow, AnalyzeSummaryRow } from './analyze-row'
 import {
@@ -11,10 +12,6 @@ import {
   MAP_MAX_ZOOM,
   MAP_MIN_ZOOM,
   MAP_ZOOMED_IN_THRESHOLD,
-  SATELLITE_TILE_ATTRIBUTION,
-  SATELLITE_TILE_URL,
-  TILE_ATTRIBUTION,
-  TILE_URL,
 } from '@/components/product/leaflet-constants'
 
 type PlacedPin = AnalyzeSummaryRow & { centroid: [number, number] }
@@ -194,7 +191,8 @@ export function ParcelMapInner({
   selectedKey = null,
   hoveredKey = null,
   focusToken = 0,
-  satellite = false,
+  layersKey,
+  defaultBase = 'map',
   onSelect,
   popup,
 }: {
@@ -209,7 +207,10 @@ export function ParcelMapInner({
   // analyze-tab.tsx). Only meaningful when `onSelect` is passed - see the
   // FlyToOutline gate below.
   focusToken?: number
-  satellite?: boolean
+  // Where this map remembers the layers the user picked (see map-layers.tsx),
+  // and the base map it shows until they pick one.
+  layersKey: string
+  defaultBase?: BaseLayer
   onSelect?: (key: string) => void
   // What a pin's popup shows when it's clicked - the parcel's card.
   popup?: (row: AnalyzeSummaryRow) => ReactNode
@@ -237,42 +238,49 @@ export function ParcelMapInner({
   }, [onSelect])
   const closePopup = useCallback(() => setOpenPopup(null), [])
   const popupRow = popup && openPopup ? placedPins.find((p) => p.key === openPopup.id) ?? null : null
+  const [layers, setLayers] = useMapLayerChoice(layersKey, defaultBase)
 
   return (
-    <MapContainer
-      {...(initialBounds ? { bounds: initialBounds, boundsOptions: fitOptions } : { center: FALLBACK_MAP_CENTER, zoom: 11 })}
-      className="h-full w-full"
-      scrollWheelZoom
-      maxZoom={MAP_MAX_ZOOM}
-      minZoom={MAP_MIN_ZOOM}
-    >
-      <TileLayer
-        url={satellite ? SATELLITE_TILE_URL : TILE_URL}
-        attribution={satellite ? SATELLITE_TILE_ATTRIBUTION : TILE_ATTRIBUTION}
+    <div className="relative h-full w-full">
+      <MapContainer
+        {...(initialBounds ? { bounds: initialBounds, boundsOptions: fitOptions } : { center: FALLBACK_MAP_CENTER, zoom: 11 })}
+        className="h-full w-full"
+        scrollWheelZoom
         maxZoom={MAP_MAX_ZOOM}
-      />
-      <TrackContainerSize initialBounds={initialBounds} fitOptions={fitOptions} />
-      {/* Only the interactive map (the one with pins to click) flies on
-          selection - the detail dialog's single-outline map is static and
-          already opens fitted to it via `bounds` above, so flying there too
-          would just replay the same transition pointlessly on every open. */}
-      {onSelect && <FlyToOutline outline={outline} focusToken={focusToken} />}
-      {placedPins.length > 0 && <ParcelPins pins={placedPins} activeIds={[selectedKey, hoveredKey]} onPinClick={handlePinClick} />}
-      {popup && popupRow && openPopup && (
-        <PinPopup key={openPopup.click} position={popupRow.centroid} onClose={closePopup}>
-          {popup(popupRow)}
-        </PinPopup>
-      )}
-      {outline && outline.polygon.length > 0 && (
-        <Polygon
-          positions={outline.polygon}
-          // Leaflet paints via raw SVG attributes rather than CSS, so this
-          // needs literal color values instead of the app's CSS custom
-          // properties.
-          pathOptions={{ color: '#0ea5e9', weight: 3, fillOpacity: 0.35 }}
-          interactive={false}
-        />
-      )}
-    </MapContainer>
+        minZoom={MAP_MIN_ZOOM}
+        // Leaflet keeps the previous zoom level's tiles until the new ones have
+        // faded in, which it times with animation frames. When frames stall (a
+        // background tab), the old tiles never go - invisible under opaque base
+        // tiles, but a blown-up, blurry copy of the satellite labels shows
+        // through the transparent label tiles. Without the fade, a tile counts as
+        // shown the moment it loads and the old level is pruned straight away.
+        fadeAnimation={false}
+      >
+        <MapLayers choice={layers} />
+        <TrackContainerSize initialBounds={initialBounds} fitOptions={fitOptions} />
+        {/* Only the interactive map (the one with pins to click) flies on
+            selection - the detail dialog's single-outline map is static and
+            already opens fitted to it via `bounds` above, so flying there too
+            would just replay the same transition pointlessly on every open. */}
+        {onSelect && <FlyToOutline outline={outline} focusToken={focusToken} />}
+        {placedPins.length > 0 && <ParcelPins pins={placedPins} activeIds={[selectedKey, hoveredKey]} onPinClick={handlePinClick} />}
+        {popup && popupRow && openPopup && (
+          <PinPopup key={openPopup.click} position={popupRow.centroid} onClose={closePopup}>
+            {popup(popupRow)}
+          </PinPopup>
+        )}
+        {outline && outline.polygon.length > 0 && (
+          <Polygon
+            positions={outline.polygon}
+            // Leaflet paints via raw SVG attributes rather than CSS, so this
+            // needs literal color values instead of the app's CSS custom
+            // properties.
+            pathOptions={{ color: '#0ea5e9', weight: 3, fillOpacity: 0.35 }}
+            interactive={false}
+          />
+        )}
+      </MapContainer>
+      <MapLayerControl choice={layers} onChange={setLayers} />
+    </div>
   )
 }

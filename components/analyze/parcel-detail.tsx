@@ -165,7 +165,7 @@ export function ParcelDetail({
             past anything layered over the dialog body. */}
         <div className="isolate h-64 overflow-hidden rounded-xl border border-border lg:h-auto">
           {detail ? (
-            <ParcelMap outline={detail} satellite />
+            <ParcelMap outline={detail} layersKey="cts.mapLayers.detail" defaultBase="satellite" />
           ) : detailUnavailable ? (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Couldn&apos;t load map</div>
           ) : (

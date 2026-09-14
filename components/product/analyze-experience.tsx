@@ -116,6 +116,7 @@ export function AnalyzeExperience() {
             <div className={`isolate min-w-0 flex-1 overflow-hidden rounded-xl border border-border ${narrowView === 'list' ? '@max-[40rem]:hidden' : ''}`}>
               <ParcelMap
                 pins={visible}
+                layersKey="cts.mapLayers.browse"
                 outline={selectedKey ? details[selectedKey] : null}
                 selectedKey={selectedKey}
                 hoveredKey={hoveredKey}

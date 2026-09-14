@@ -439,6 +439,7 @@ export function SavedExperience() {
               <ParcelMap
                 key={view.kind === 'list' ? view.listId : view.kind}
                 pins={rows}
+                layersKey="cts.mapLayers.saved"
                 outline={selectedKey ? details[selectedKey] : null}
                 selectedKey={selectedKey}
                 hoveredKey={hoveredKey}
