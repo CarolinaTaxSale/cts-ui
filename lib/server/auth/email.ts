@@ -31,9 +31,11 @@ export async function sendOtpEmail(email: string, code: string, ttlMinutes: numb
 }
 
 // Brand colors, as hex because email clients don't support oklch: navy is the
-// light-theme --primary and cream the --background from app/globals.css, red is
-// the map pin in resources/branding/logo.png.
+// light-theme --primary, teal the dark-theme --primary (legible on navy) and
+// cream the --background from app/globals.css, red is the map pin in
+// resources/branding/logo.png.
 const NAVY = '#142741'
+const TEAL = '#3bcddc'
 const RED = '#d7261e'
 const CREAM = '#f7f4ec'
 const TEXT = '#1e2a3a'
@@ -62,7 +64,7 @@ export function renderOtpEmailHtml(code: string, ttlMinutes: number): string {
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:480px;background-color:#ffffff;border:1px solid ${BORDER};border-radius:12px;overflow:hidden;">
         <tr>
           <td align="center" style="background-color:${NAVY};padding:22px 24px 20px;border-bottom:4px solid ${RED};">
-            <div style="font-family:${FONT};font-size:22px;font-weight:bold;letter-spacing:0.2px;color:#ffffff;">Carolina<span style="color:#f3d9a4;">TaxSale</span>.com</div>
+            <div style="font-family:${FONT};font-size:22px;font-weight:bold;letter-spacing:0.2px;color:#ffffff;">Carolina<span style="color:${TEAL};">TaxSale</span>.com</div>
             <div style="font-family:${FONT};font-size:13px;color:#c9d2e0;padding-top:6px;">Your sign-in code</div>
           </td>
         </tr>
