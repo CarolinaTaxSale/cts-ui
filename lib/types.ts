@@ -32,8 +32,13 @@ export type Sale = { date: string | null; price: number; instrument: string; sel
 
 // Whether the parcel has a Street View image to show. null when there is none
 // to show and no lookup has said why; `available: false` when the lookup found
-// no Street View near the lot.
-export type StreetViewInsight = { available: boolean; capturedAt: string | null }
+// no Street View near the lot. `pano` is the Google pano the image was taken
+// from, when the lookup recorded it - the link out to Street View opens it.
+export type StreetViewInsight = {
+  available: boolean
+  capturedAt: string | null
+  pano?: { id: string; position: [number, number] | null }
+}
 export type Insights = { ownerDistance: number; isOwnerAddress: boolean; streetView?: StreetViewInsight | null } | null
 
 export type TaxHistoryEntry = {

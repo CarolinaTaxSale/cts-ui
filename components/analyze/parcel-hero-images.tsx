@@ -2,7 +2,8 @@
 
 import { useState, type ReactNode } from 'react'
 import Image from 'next/image'
-import { ImageOff } from 'lucide-react'
+import { ExternalLink, ImageOff } from 'lucide-react'
+import { googleSatelliteUrl, googleStreetViewUrl } from '@/lib/google-maps'
 import type { StreetViewInsight } from '@/lib/types'
 import { SATELLITE_IMAGE_CREDIT, STREET_VIEW_IMAGE_CREDIT, satelliteImageUrl, streetViewImageUrl } from '@/lib/parcel-images'
 
@@ -19,6 +20,24 @@ function Frame({ children, caption }: { children: ReactNode; caption: string }) 
       <figcaption className="mt-1 truncate text-[11px] text-muted-foreground">{caption}</figcaption>
     </figure>
   )
+}
+
+// Makes a loaded image a link into Google Maps. The chip stays visible (not
+// only on hover) so touch users can tell the photo is a link.
+function MapsLink({ href, label, children }: { href: string; label: string; children: ReactNode }) {
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" aria-label={label} title={label} className="group absolute inset-0 outline-none">
+      {children}
+      <span className="absolute right-2 bottom-2 flex items-center gap-1 rounded-md bg-black/60 px-2 py-1 text-xs font-medium text-white shadow-sm transition group-hover:bg-black/80 group-focus-visible:ring-2 group-focus-visible:ring-primary">
+        <ExternalLink aria-hidden size={13} />
+        Google Maps
+      </span>
+    </a>
+  )
+}
+
+function LinkedIf({ href, label, children }: { href: string | null; label: string; children: ReactNode }) {
+  return href ? <MapsLink href={href} label={label}>{children}</MapsLink> : children
 }
 
 function Missing({ children }: { children: ReactNode }) {
@@ -39,13 +58,19 @@ function Missing({ children }: { children: ReactNode }) {
 // there's no Street View near the lot, and null when there's simply no image.
 // Only an available one is requested, so nothing asks for an image that can
 // only 404.
+//
+// Each photo opens its live counterpart in Google Maps: the overhead opens the
+// satellite map at the parcel (`center`, [lat, lng]), and Street View opens the
+// same pano, facing the lot. A parcel with no centroid gets no links.
 export function ParcelHeroImages({
   countyId,
   parcelId,
+  center,
   streetView,
 }: {
   countyId: string
   parcelId: string
+  center: [number, number] | null
   streetView: StreetViewInsight | null | undefined
 }) {
   const [satelliteFailed, setSatelliteFailed] = useState(false)
@@ -57,26 +82,30 @@ export function ParcelHeroImages({
         {satelliteFailed ? (
           <Missing>Couldn&apos;t load the overhead</Missing>
         ) : (
-          <Image
-            src={satelliteImageUrl(countyId, parcelId, 'hero')}
-            alt="Satellite view of the parcel with its boundary outlined"
-            fill
-            unoptimized
-            className="object-cover"
-            onError={() => setSatelliteFailed(true)}
-          />
+          <LinkedIf href={center && googleSatelliteUrl(center)} label="Open the satellite view in Google Maps">
+            <Image
+              src={satelliteImageUrl(countyId, parcelId, 'hero')}
+              alt="Satellite view of the parcel with its boundary outlined"
+              fill
+              unoptimized
+              className="object-cover"
+              onError={() => setSatelliteFailed(true)}
+            />
+          </LinkedIf>
         )}
       </Frame>
       <Frame caption={streetView?.capturedAt ? `${STREET_VIEW_IMAGE_CREDIT} · captured ${formatCaptured(streetView.capturedAt)}` : STREET_VIEW_IMAGE_CREDIT}>
         {streetView === undefined ? null : streetView?.available && !streetViewFailed ? (
-          <Image
-            src={streetViewImageUrl(countyId, parcelId)}
-            alt="Street View of the parcel from the road"
-            fill
-            unoptimized
-            className="object-cover"
-            onError={() => setStreetViewFailed(true)}
-          />
+          <LinkedIf href={center && googleStreetViewUrl(center, streetView.pano)} label="Open Street View in Google Maps">
+            <Image
+              src={streetViewImageUrl(countyId, parcelId)}
+              alt="Street View of the parcel from the road"
+              fill
+              unoptimized
+              className="object-cover"
+              onError={() => setStreetViewFailed(true)}
+            />
+          </LinkedIf>
         ) : (
           <Missing>{streetView?.available === false ? 'No Street View near this parcel' : 'Street View unavailable'}</Missing>
         )}
