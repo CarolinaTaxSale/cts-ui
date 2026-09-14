@@ -78,6 +78,8 @@ export type PaymentHistoryEntry = { billYear: number; paymentDate: string | null
 export type ParcelSummary = {
   countyId: string
   parcelId: string
+  // Always true in a county's delinquent list; a saved parcel may have been paid up since.
+  isDelinquent: boolean
   address: string
   owner: string
   type: string
@@ -93,4 +95,22 @@ export type ParcelSummary = {
   isOwnerAddress?: boolean | null
   isLandlocked?: boolean | null
   paymentHistory?: PaymentHistoryEntry[]
+}
+
+// --- a signed-in user's library (lib/server/library.ts) ---
+
+export type SavedParcel = { countyId: string; parcelId: string; savedAt: string; listIds: string[] }
+export type ParcelList = { id: string; name: string; createdAt: string }
+// A note's first few hundred characters, for the saved page's cards; the whole
+// note is fetched when its parcel is opened.
+export type NoteSummary = { countyId: string; parcelId: string; preview: string; updatedAt: string }
+export type ParcelNote = { body: string; updatedAt: string }
+
+export type Library = {
+  // Newest first.
+  saved: SavedParcel[]
+  // Oldest first, so a new list lands at the end.
+  lists: ParcelList[]
+  // Most recently edited first.
+  notes: NoteSummary[]
 }

@@ -2,7 +2,8 @@
 
 import { Fragment, memo, type ReactNode } from 'react'
 import Image from 'next/image'
-import { Heart, LandPlot } from 'lucide-react'
+import { Heart, LandPlot, NotebookPen } from 'lucide-react'
+import { getCountyConfig } from '@/lib/counties'
 import { formatFeet, formatMiles, formatUsd, toDisplayCase } from '@/lib/format'
 import { satelliteImageUrl } from '@/lib/parcel-images'
 import { PaymentTimingChart } from './payment-timing-chart'
@@ -12,6 +13,7 @@ import type { AnalyzeSummaryRow } from './analyze-row'
 // stopping the scroll for, at most two so they never cover the picture.
 function badgesFor(row: AnalyzeSummaryRow): string[] {
   const badges: string[] = []
+  if (!row.isDelinquent) badges.push('Taxes paid')
   if (row.isLandlocked) badges.push('Landlocked')
   if (row.latePayments >= 2) badges.push(`${row.latePayments} unpaid bills`)
   return badges.slice(0, 2)
@@ -30,7 +32,8 @@ function factsFor(row: AnalyzeSummaryRow): ReactNode[] {
 // One parcel as a listing card. The same component renders in the list beside
 // the map and inside a map pin's popup, so the two always read identically.
 // Clicking anywhere on it opens the parcel's full detail; the heart toggles the
-// saved state without opening anything.
+// saved state without opening anything. Both callbacks take the parcel's key
+// (parcel-key.ts).
 //
 // Memoized, with the callbacks taking the parcel id rather than being bound
 // per card, so selecting, hovering or saving one parcel re-renders only the
@@ -41,13 +44,19 @@ export const ParcelCard = memo(function ParcelCard({
   onToggleSave,
   onOpen,
   highlighted = false,
+  note,
+  showCounty = false,
 }: {
   row: AnalyzeSummaryRow
   saved: boolean
-  onToggleSave: (id: string) => void
-  onOpen: (id: string) => void
+  onToggleSave: (key: string) => void
+  onOpen: (key: string) => void
   // Ring the card - it's the parcel whose pin is selected on the map.
   highlighted?: boolean
+  // The start of the user's note on this parcel, if they wrote one.
+  note?: string
+  // Name the county beside the parcel id - for screens mixing counties.
+  showCounty?: boolean
 }) {
   const badges = badgesFor(row)
   const facts = factsFor(row)
@@ -55,7 +64,7 @@ export const ParcelCard = memo(function ParcelCard({
 
   return (
     <article
-      onClick={() => onOpen(row.id)}
+      onClick={() => onOpen(row.key)}
       className={`group flex h-full cursor-pointer flex-col overflow-hidden rounded-xl border bg-card text-card-foreground shadow-sm transition hover:shadow-md ${highlighted ? 'border-primary ring-1 ring-primary' : 'border-border'}`}
     >
       <div className="parcel-card-placeholder relative aspect-[2/1] shrink-0 overflow-hidden">
@@ -84,7 +93,7 @@ export const ParcelCard = memo(function ParcelCard({
           aria-pressed={saved}
           onClick={(e) => {
             e.stopPropagation()
-            onToggleSave(row.id)
+            onToggleSave(row.key)
           }}
           // A solid tint rather than backdrop-blur: forty blurred backdrops
           // re-composited on every scroll and resize frame cost more than the
@@ -93,7 +102,10 @@ export const ParcelCard = memo(function ParcelCard({
         >
           <Heart size={18} strokeWidth={2.25} className={saved ? 'fill-destructive text-destructive' : ''} />
         </button>
-        <span className="absolute bottom-2 left-2 rounded bg-black/50 px-1.5 py-0.5 font-mono text-[11px] text-white">{row.id}</span>
+        <span className="absolute bottom-2 left-2 rounded bg-black/50 px-1.5 py-0.5 font-mono text-[11px] text-white">
+          {showCounty && <span className="font-sans font-semibold">{getCountyConfig(row.countyId)?.name.replace(/ County$/, '') ?? row.countyId} · </span>}
+          {row.id}
+        </span>
       </div>
 
       <div className="flex flex-1 flex-col gap-1 p-3">
@@ -127,6 +139,12 @@ export const ParcelCard = memo(function ParcelCard({
           </p>
           {row.ownerAddress && <p className="truncate" title={row.ownerAddress}>{row.ownerAddress}</p>}
         </div>
+        {note && (
+          <p className="flex gap-1.5 rounded-md bg-muted/60 px-2 py-1.5 text-xs text-muted-foreground">
+            <NotebookPen aria-label="Your note" size={13} className="mt-px shrink-0" />
+            <span className="line-clamp-2 break-words whitespace-pre-line">{note}</span>
+          </p>
+        )}
         <div className="mt-auto pt-1.5">
           <PaymentTimingChart history={row.paymentHistory} compact />
         </div>

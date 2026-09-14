@@ -3,6 +3,8 @@
 import { useRef } from 'react'
 import { Dialog } from '@base-ui/react/dialog'
 import { ExternalLink, Heart, NotebookPen, X } from 'lucide-react'
+import { useLibrary } from '@/components/product/library-context'
+import { ListMenu } from '@/components/product/list-menu'
 import { formatUsd, toDisplayCase } from '@/lib/format'
 import { ParcelDetail } from './parcel-detail'
 import { useParcelNotes } from './use-parcel-notes'
@@ -12,15 +14,14 @@ type ContentProps = {
   row: AnalyzeSummaryRow
   detail: AnalyzeRow | undefined
   loading: boolean
-  saved: boolean
-  onToggleSave: () => void
 }
 
 // Everything about one parcel - owners and their other holdings, valuation,
 // sales, the payment-timing chart, notes, and a satellite view of the lot -
 // opened by clicking its card (in the list or in a map pin's popup), the way a
 // listing opens from a search results page. The header repeats the card's
-// headline figures so the operator never loses track of which parcel this is.
+// headline figures so the user never loses track of which parcel this is, and
+// holds what they can do with it: save it, sort it into lists, write notes.
 //
 // `row` stays set while `open` goes false so the contents don't blank out
 // mid-way through the closing transition.
@@ -38,20 +39,22 @@ export function ParcelDetailDialog({
         {/* Focus lands on the dialog itself rather than its first control, so
             opening a parcel doesn't ring the County record link. */}
         <Dialog.Popup ref={popupRef} initialFocus={popupRef} className="fixed top-1/2 left-1/2 z-[61] flex max-h-[calc(100dvh-2rem)] w-[min(64rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-2xl outline-none transition-[opacity,scale] duration-150 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
-          {/* Keyed by parcel, so opening a different one starts a fresh notes draft. */}
-          {row && <ParcelDialogContent key={row.id} {...content} row={row} />}
+          {/* Keyed by parcel, so opening a different one loads its own note. */}
+          {row && <ParcelDialogContent key={row.key} {...content} row={row} />}
         </Dialog.Popup>
       </Dialog.Portal>
     </Dialog.Root>
   )
 }
 
-function ParcelDialogContent({ row, detail, loading, saved, onToggleSave }: ContentProps) {
-  const notes = useParcelNotes()
+function ParcelDialogContent({ row, detail, loading }: ContentProps) {
+  const notes = useParcelNotes(row.countyId, row.id)
+  const { savedKeys, toggleSaved } = useLibrary()
+  const saved = savedKeys.has(row.key)
   return (
     <>
-      <header className="flex items-start gap-3 border-b border-border p-5">
-        <div className="min-w-0 flex-1">
+      <header className="flex flex-wrap items-start gap-3 border-b border-border p-5">
+        <div className="min-w-0 flex-1 basis-64">
           <div className="flex flex-wrap items-baseline gap-x-3">
             {row.marketValue > 0 ? (
               <span className="text-2xl font-bold tracking-tight">{formatUsd(row.marketValue)}</span>
@@ -74,6 +77,7 @@ function ParcelDialogContent({ row, detail, loading, saved, onToggleSave }: Cont
               <span className="hidden sm:inline">County record</span>
             </a>
           )}
+          <ListMenu parcelKey={row.key} />
           <button
             type="button"
             title={notes.statusLabel}
@@ -81,18 +85,18 @@ function ParcelDialogContent({ row, detail, loading, saved, onToggleSave }: Cont
             aria-expanded={notes.notesOpen}
             onClick={notes.toggle}
             disabled={notes.notesOpen && !notes.canSave}
-            className={`icon-button relative disabled:opacity-40 ${notes.notesOpen ? 'border-primary text-primary' : ''}`}
+            className={`icon-button relative disabled:opacity-40 ${notes.notesOpen || notes.hasNote ? 'border-primary text-primary' : ''}`}
           >
             <NotebookPen size={18} />
-            {notes.isDirty && !notes.isEmpty && (
-              <span aria-hidden className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-primary" />
+            {(notes.isDirty || notes.saveState === 'error') && (
+              <span aria-hidden className={`absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full ${notes.saveState === 'error' ? 'bg-destructive' : 'bg-primary'}`} />
             )}
           </button>
           <button
             type="button"
             aria-label={saved ? 'Unsave parcel' : 'Save parcel'}
             aria-pressed={saved}
-            onClick={onToggleSave}
+            onClick={() => toggleSaved(row.key)}
             className="icon-button"
           >
             <Heart size={18} className={saved ? 'fill-destructive text-destructive' : ''} />
@@ -108,7 +112,9 @@ function ParcelDialogContent({ row, detail, loading, saved, onToggleSave }: Cont
           detail={detail}
           loading={loading}
           notesOpen={notes.notesOpen}
+          notesLoaded={notes.loaded}
           notesText={notes.notesText}
+          notesStatus={notes.statusLabel}
           onNotesChange={notes.onNotesChange}
         />
       </div>

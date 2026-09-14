@@ -19,14 +19,20 @@ export function ParcelDetail({
   detail,
   loading,
   notesOpen,
+  notesLoaded,
   notesText,
+  notesStatus,
   onNotesChange,
 }: {
   row: AnalyzeSummaryRow
   detail: AnalyzeRow | undefined
   loading: boolean
   notesOpen: boolean
+  notesLoaded: boolean
   notesText: string
+  // The notes button's label ("Autosaved notes", "Saving notes…"), repeated
+  // under the textarea where the user is looking.
+  notesStatus: string
   onNotesChange: (value: string) => void
 }) {
   // detail fetch failed silently (see use-selected-parcel.ts) - tell the
@@ -40,13 +46,19 @@ export function ParcelDetail({
   return (
     <div className="p-5">
       {notesOpen && (
-        <textarea
-          autoFocus
-          value={notesText}
-          onChange={(e) => onNotesChange(e.target.value)}
-          placeholder="Add notes about this parcel…"
-          className="mb-5 h-28 w-full resize-y rounded-lg border border-input bg-background p-3 text-sm outline-none focus:border-primary"
-        />
+        <div className="mb-5">
+          <textarea
+            autoFocus
+            value={notesText}
+            disabled={!notesLoaded}
+            maxLength={20000}
+            onChange={(e) => onNotesChange(e.target.value)}
+            aria-label="Your notes on this parcel"
+            placeholder={notesLoaded ? 'Add notes about this parcel… Only you can see them.' : 'Loading your notes…'}
+            className="h-28 w-full resize-y rounded-lg border border-input bg-background p-3 text-sm outline-none focus:border-primary disabled:opacity-60"
+          />
+          <p aria-live="polite" className="mt-1 text-right text-xs text-muted-foreground">{notesLoaded ? notesStatus : ''}</p>
+        </div>
       )}
       <div className="mb-5">
         <ParcelHeroImages countyId={row.countyId} parcelId={row.id} streetView={detail?.streetView} />
