@@ -4,8 +4,12 @@ export function notFound(error = 'Not found'): Response {
   return Response.json({ error }, { status: 404 })
 }
 
-export function unauthorized(): Response {
-  return Response.json({ error: 'Sign in to see parcel data.' }, { status: 401 })
+export function unauthorized(error = 'Sign in to see parcel data.'): Response {
+  return Response.json({ error }, { status: 401 })
+}
+
+export function badRequest(error: string): Response {
+  return Response.json({ error }, { status: 400 })
 }
 
 /** Log the real error server-side; the client only learns that something failed. */

@@ -9,6 +9,7 @@ import 'server-only'
 // sides must change together; all-in-one's resources/docs/shared-code-inventory.md lists
 // every copied rule and where it comes from.
 
+import type { PendingQuery, Row } from 'postgres'
 import { getCountyConfig } from '../counties'
 import type { StoredImageKind } from '../parcel-images'
 import type { Parcel, ParcelSummary, PaymentHistoryEntry } from '../types'
@@ -57,6 +58,7 @@ function issuedBills(bills: { billYear: number; billAmount: string | number; pay
 
 type SummaryRow = {
   parcelId: string
+  isDelinquent: boolean
   taxOwed: string | null
   address: string | null
   normalizedAddress: string | null
@@ -76,11 +78,30 @@ type SummaryRow = {
 }
 
 /** Every delinquent parcel in the county, or with `limit`, the ones owing the most tax. */
-export async function getDelinquentParcels(countyId: string, { limit }: { limit?: number } = {}): Promise<ParcelSummary[]> {
+export function getDelinquentParcels(countyId: string, { limit }: { limit?: number } = {}): Promise<ParcelSummary[]> {
+  const sql = parcelsDb()
+  return querySummaries(countyId, sql`m.is_delinquent`, limit === undefined ? sql`` : sql`order by m.tax_owed desc nulls last limit ${limit}`)
+}
+
+/** These parcels of the county, delinquent or not (a saved parcel can be paid up since). Unknown ids are left out. */
+export function getParcelSummaries(countyId: string, parcelIds: string[]): Promise<ParcelSummary[]> {
+  if (parcelIds.length === 0) return Promise.resolve([])
+  const sql = parcelsDb()
+  return querySummaries(countyId, sql`m.parcel_id in ${sql(parcelIds)}`, sql``)
+}
+
+export async function parcelExists(countyId: string, parcelId: string): Promise<boolean> {
+  const [row] = await parcelsDb()`select 1 from parcels.meta where county_id = ${countyId} and parcel_id = ${parcelId}`
+  return row !== undefined
+}
+
+type Fragment = PendingQuery<Row[]>
+
+async function querySummaries(countyId: string, filter: Fragment, tail: Fragment): Promise<ParcelSummary[]> {
   const sql = parcelsDb()
   const rows = await sql<SummaryRow[]>`
     select
-      m.parcel_id as "parcelId",
+      m.parcel_id as "parcelId", m.is_delinquent as "isDelinquent",
       m.tax_owed as "taxOwed",
       a.address, a.normalized_address as "normalizedAddress",
       a.assessed_acreage as "assessedAcreage", a.calculated_acreage as "calculatedAcreage",
@@ -107,8 +128,8 @@ export async function getDelinquentParcels(countyId: string, { limit }: { limit?
       select jsonb_agg(jsonb_build_object('billYear', bill_year, 'billAmount', bill_amount, 'paymentDate', payment_date)) as bills
       from parcels.tax_bills where parcel_uuid = m.parcel_uuid
     ) tb on true
-    where m.county_id = ${countyId} and m.is_delinquent
-    ${limit === undefined ? sql`` : sql`order by m.tax_owed desc nulls last limit ${limit}`}
+    where m.county_id = ${countyId} and ${filter}
+    ${tail}
   `
 
   const shared = await findSharedFootprintKeys(rows.map((r) => r.footprintKey))
@@ -119,6 +140,7 @@ export async function getDelinquentParcels(countyId: string, { limit }: { limit?
     return {
       countyId,
       parcelId: row.parcelId,
+      isDelinquent: row.isDelinquent,
       address: row.normalizedAddress ?? row.address ?? '',
       owner: row.ownerName ?? '',
       ownerAddress: row.ownerAddress ?? '',
