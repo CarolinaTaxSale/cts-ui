@@ -60,7 +60,7 @@ export async function requestOtp(emailInput: string): Promise<RequestOtpResult> 
     insert into consumer_auth.otp_codes (email, code_hash, expires_at)
     values (${email}, ${hashCode(email, code)}, ${new Date(Date.now() + OTP_TTL_MINUTES * 60_000)})
   `
-  await sendOtpEmail(email, code)
+  await sendOtpEmail(email, code, OTP_TTL_MINUTES)
   return { ok: true }
 }
 
